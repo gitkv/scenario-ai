@@ -1,0 +1,11 @@
+__pycache__
+secret.py
+script.txt
+*.wav
+*.mp3
+*.log
+.tmp
+scenarios
+base_scenarios.txt
+test.py
+latest_silero_models.yml

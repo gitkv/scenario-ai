@@ -1,0 +1,11 @@
+dacite
+dotenv
+flask
+mediainfo
+openai
+pydub
+requests
+yaml
+dataclasses
+logging
+typing
