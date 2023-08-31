@@ -2,6 +2,7 @@ import logging
 import os
 import requests
 from .base_tts import BaseTTS
+from .translit import Translit
 
 class YandexTTS(BaseTTS):
 
@@ -13,9 +14,11 @@ class YandexTTS(BaseTTS):
         self.tmp_dir = tmp_dir
         self.api_key = api_key
         os.makedirs(self.tmp_dir, exist_ok=True)
+        self.translit = Translit()
 
     def generate_voice(self, text, voice_id, pos):
         super().generate_voice(text, voice_id, pos)
+        text = self.translit.replace_words_from_dict(text)
         url = f"{self.url_base}format=mp3&lang=ru-RU&key={self.api_key}&emotion=good&speaker={voice_id}&speed=1&text={text}"
         response = requests.get(url)
         try:
