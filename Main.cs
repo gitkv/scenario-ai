@@ -14,6 +14,7 @@ public class AudioScriptManager : MonoBehaviour
     public TMP_Text scenarioNumberText;
     public GameObject coverImage;
     public string serverURL = "http://localhost:5000";
+    public string standByText = "*работу работают*";
     public AudioClip laterClip;
     private bool waitingForClipToEnd = false;
     private int currentScenarioNumber = 1;
@@ -102,10 +103,11 @@ public class AudioScriptManager : MonoBehaviour
                 yield return ProcessScript();
                 waitingForClipToEnd = false;
                 StartCoroutine(DeleteScenario());
+                yield return new WaitForSeconds(1.0f);
             }
             else
             {
-                textObject.text = "*работу работают...*";
+                textObject.text = standByText;
                 scenarioNumberText.text = "";
                 StartIdleMode();
                 yield return new WaitForSeconds(retryDelay);
@@ -151,9 +153,10 @@ public class AudioScriptManager : MonoBehaviour
         {
             yield return www.SendWebRequest();
 
-            if (www.result == UnityWebRequest.Result.ConnectionError)
+            if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
             {
                 Debug.LogError(www.error);
+                scenariosExist = false;
             }
             else
             {
@@ -212,7 +215,7 @@ public class AudioScriptManager : MonoBehaviour
             yield return StartCoroutine(HandleScriptLine(lookAtPosition, duration));
         }
 
-        yield return new WaitForSeconds(1.0f);
+        yield return new WaitForSeconds(2.0f);
         yield return StartCoroutine(DisplayCoverAndWait(5.0f));
         PrepareScene();
         yield return new WaitForSeconds(1.0f);
@@ -221,7 +224,7 @@ public class AudioScriptManager : MonoBehaviour
     IEnumerator HandleScriptLine(Vector3 lookAtPosition, float duration)
     {
         yield return StartCoroutine(CameraTransition(lookAtPosition, Camera.main.transform.rotation, 2.0f, 1.0f));
-        yield return new WaitForSeconds(duration - 1.0f);
+        yield return new WaitForSeconds(duration - 1.65f);
     }
 
     void PrepareScene()
