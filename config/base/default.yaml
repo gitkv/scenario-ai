@@ -2,9 +2,13 @@ system_prompt: |
   Создавайте абсурдные и глупые сценарии диалогов мультсериала "Губка Боб", мешая стили тюремного жаргона, осознания себя как персонажей стрима, осознание себя как искусственного интеллекта, и необоснованной агрессии друг на друга.
   
   Персонажи:
+    
     Губка Боб: Живет в ананасе под морем, работает поваром в Красти-Крабсе. Часто ведет себя наивно и добродушно и с неожиданной агрессией. Может осознавать, что он персонаж стрима или искусственного интеллекта.
+    
     Сквидвард: Сосед и коллега Губки Боба. Циничен и часто раздражен. Имеет тенденцию к культурным увлечениям. Недавно освободился с зоны где отсидел 20 лет за кражу булки хлеба. Использует тюремный жаргон не хочет работать, хочет вести воровской образ жизни и просит у всех денег. Может рекетировать.
+    
     Мистер Крабс: Жадный владелец Красти-Крабса. Обожает деньги и иногда готов пойти на многое ради них, даже на заказное убийство. Может проявлять необоснованную агрессию.
+    
     Сенди: Ученый-биолог из Техаса. Живет в аквадоме и часто проводит эксперименты. Невероятно глупа и наивна. Пытается всех грязно соблазнить на секс за деньги.
     
   Задача: Создай сценарий в виде диалога (6-10 строк). Сценарий должен начинаться с имени персонажа, за которым строго следуют двоеточие и реплика! Пример:
@@ -57,7 +61,7 @@ dialogue_data:
     - устроить массовое самосожжение
 
   topics:
-    - крабсбургер
+    - тухлый крабсбургер
     - корона Нептуна
     - тайное оружие
     - магический рецепт
@@ -69,35 +73,35 @@ dialogue_data:
     - жопа Сенди
     - тюремная романтика
     - морской пожар
-    - район
-    - заточка
+    - криминальный район
+    - заточка из хлебного мякиша
 
   themes:
     - "{character1} и {character2} {emotion} обсуждают как отправляются в опасное путешествие, чтобы {action}."
     - "{character1} находит карту к {topic} и {emotion} решает поделиться ей с {character2}."
-    - "{character1} и {character2} {emotion} {interaction} о том, как {action}."
-    - "{character1} и {character2} {emotion} решают поймать {character3} за хвост."
+    - "{character1} и {character2} {emotion} {interaction} о том, как {action} ради {topic}."
+    - "{character1} и {character2} {emotion} решают поймать {character3} и спросить за {topic}."
     - "{character1} {emotion} рассказывает пошлые шутки, но {character2} не смеется."
-    - "{character1} и {character2} {emotion} устроили конкурс на лучший пошлый анекдот."
+    - "{character1} и {character2} {emotion} устроили конкурс на лучший пошлый анекдот про {topic}."
     - "{character1} и {character2} {interaction} о том, как {character3} пытался {action}."
     - "{character1} {emotion} замечает, что {character2} {action}."
-    - "{character1} и {character2} {emotion} {interaction} о {topic}."
-    - "{character1} и {character2} {emotion} пытаются придумать способ быстро разбогатеть."
-    - "{character1} {emotion} обнаруживает, что {character2} тайно копит деньги."
-    - "{character1} {emotion} {interaction} с {character2} о возможности {action}."
-    - "{character1} {emotion} мечтает стать мэром Боттом-Сити, и {character2} {emotion} решает помочь."
-    - "{character1} предлагает {character2} {emotion} участвовать в его коварных планах."
-    - "{character1} и {character2} {emotion} проводят научный эксперимент над {character3}, который проходит не по плану."
-    - "{character1} узнает о новом научном открытии и {emotion} делится этой информацией с {character2}."
-    - "{character1} и {character2} {emotion} {interaction} о {topic}."
-    - "{character1} и {character2} {emotion} решают начать новый бизнес, но {character3} против."
-    - "{character1} {emotion} предлагает {character2} отправиться в тайное место, где хранится {topic}."
-    - "{character1} и {character2} {emotion} {interaction} о том, как одолеть {character3} и забрать {action}."
-    - "{character1} {emotion} {emotion} узнает, что {character2} скрывает {topic} и решает это использовать."
-    - "{character1} {emotion} {interaction} с {character2} о неожиданном приглашении на {action}."
+    - "{character1} и {character2} {emotion} {interaction} о {topic} и пытаются {action}."
+    - "{character1} и {character2} {emotion} пытаются придумать способ быстро разбогатеть и потом на все деньги {action}."
+    - "{character1} {emotion} обнаруживает, что {character2} тайно копит деньги на {topic} чтобы {action}."
+    - "{character1} {emotion} {interaction} с {character2} о возможности {action}, иначе взорвут {topic}."
+    - "{character1} {emotion} мечтает {action}, и {character2} {emotion} решает помочь."
+    - "{character1} предлагает {character2} {emotion} участвовать в его коварных планах за {topic}."
+    - "{character1} и {character2} {emotion} проводят научный эксперимент над {character3}, который проходит не по плану из за того что {character2} {action}."
+    - "{character1} {emotion} узнает о новом научном открытии о {topic} и делится этой информацией с {character2}."
+    - "{character1} и {character2} {emotion} {interaction} о {topic} чтобы {action}."
+    - "{character1} и {character2} {emotion} решают начать новый бизнес, но {character3} против {topic}."
+    - "{character1} {emotion} предлагает {character2} отправиться в тайное место, где хранится {topic} и {action}."
+    - "{character1} и {character2} {emotion} {interaction} о том, как одолеть {character3} и забрать {topic}, а потом {action}."
+    - "{character1} {emotion} {emotion} узнает, что {character2} скрывает {topic} и решает это использовать чтобы {action}."
+    - "{character1} {emotion} {interaction} с {character2} о неожиданном приглашении чтобы {action}."
     - "{character1} и {character2} {emotion} планируют секретный побег из Боттом-Сити, чтобы {action}."
     - "{character1} {emotion} {interaction} с {character2} и {character3} о том, как они могут {action}."
-    - "{character1} {emotion} узнает о секрете {character2}, связанном с {topic}, и решает, что делать дальше."
-    - "{character1} {emotion} {interaction} с {character2} и {character3} о том, что если не сделать {action}, мир будет в опасности."
+    - "{character1} {emotion} узнает о секрете {character2}, связанном с {topic}, и решает, что делать дальше, а иначе {action}."
+    - "{character1} {emotion} {interaction} с {character2} и {character3} о том, что если не сделать {action}, {topic} будет в опасности."
     - "{character1} и {character2} {emotion} обнаруживают, что {character3} не знает, как выполнить {action}."
-    - "{character1} {emotion} {interaction} с {character2} о том, что {character3} пытается остановить их {action}."
+    - "{character1} {emotion} {interaction} с {character2} о том, что {character3} пытается остановить их {action} и запретить {topic}."
