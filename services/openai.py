@@ -37,6 +37,8 @@ class OpenAIApi:
             logging.info("Text Generation Finished")
 
             return response
+        except ValueError as e:
+            raise e
         except Exception as e:
             logging.error(f"Error occurred in chat_gen: {e}")
             raise OpenAIApiException("OpenAI API Error.") from e
