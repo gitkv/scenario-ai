@@ -15,12 +15,13 @@ from services.voice.base_tts import BaseTTS
 
 
 class SceneGenerator:
-    def __init__(self, openai_api_key: str, openai_api_base: str, config: Config, voice_generator: BaseTTS, tmp_dir: str, scenarios_dir: str):
+    def __init__(self, openai_api_key: str, openai_api_base: str, config: Config, voice_generator: BaseTTS, tmp_dir: str, scenarios_dir: str, max_scenarios: int):
         self.config = config
         self.tmp_dir = tmp_dir
         self.scenarios_dir = scenarios_dir
         self.openai_api = OpenAIApi(openai_api_key, openai_api_base)
         self.voice_generator = voice_generator
+        self.max_scenarios = max_scenarios
 
         if not os.path.exists(self.tmp_dir):
             os.makedirs(self.tmp_dir)
@@ -29,42 +30,56 @@ class SceneGenerator:
             os.makedirs(self.scenarios_dir)
 
     def generate(self):
+        while True:
+            if self.count_scenarios() >= self.max_scenarios:
+                logging.info(f"Reached the maximum number of scenarios ({self.max_scenarios}). Pausing generation.")
+                time.sleep(10)
+                continue
+            
+            try:
+                logging.info("Generation Started")
+                self.validate_all_scenario_directories()
+
+                increment = self.get_increment()
+                output_dir = self.create_output_directory(increment)
+                theme = self.get_next_theme()
+
+                if not theme:
+                    raise ValueError("Empty theme")
+
+                scenario = self.generate_scenario(theme)
+                
+                self.validate_scenario(scenario)
+
+                audio_files = self.generate_audio_files(scenario)
+                time.sleep(1)
+                self.validate_audio_files(len(scenario))
+
+                self.create_script_file(scenario, audio_files, output_dir)
+                self.merge_audio_files(audio_files, output_dir)
+                
+            except OpenAIApiException as e:
+                logging.error(e)
+                exit(1)
+
+            except Exception as e:
+                logging.error(f"An error occurred while generating: {e}, Aborting")
+                logging.error(f"Exception type: {type(e).__name__}")
+                logging.error(f"Exception message: {e}")
+                logging.error(f"Stack trace: {traceback.format_exc()}")
+                self.delete_directory(output_dir)
+            
+            finally:
+                self.clean_tmp_dir()
+                logging.info("Generation Finished")
+
+    def count_scenarios(self) -> int:
         try:
-            logging.info("Generation Started")
-            self.validate_all_scenario_directories()
-
-            increment = self.get_increment()
-            output_dir = self.create_output_directory(increment)
-            theme = self.get_next_theme()
-
-            if not theme:
-                raise ValueError("Empty theme")
-
-            scenario = self.generate_scenario(theme)
-            
-            self.validate_scenario(scenario)
-
-            audio_files = self.generate_audio_files(scenario)
-            time.sleep(1)
-            self.validate_audio_files(len(scenario))
-
-            self.create_script_file(scenario, audio_files, output_dir)
-            self.merge_audio_files(audio_files, output_dir)
-            
-        except OpenAIApiException as e:
-            logging.error(e)
-            exit(1)
-
+            directories = [d for d in os.listdir(self.scenarios_dir) if os.path.isdir(os.path.join(self.scenarios_dir, d))]
+            return len(directories)
         except Exception as e:
-            logging.error(f"An error occurred while generating: {e}, Aborting")
-            logging.error(f"Exception type: {type(e).__name__}")
-            logging.error(f"Exception message: {e}")
-            logging.error(f"Stack trace: {traceback.format_exc()}")
-            self.delete_directory(output_dir)
-        
-        finally:
-            self.clean_tmp_dir()
-            logging.info("Generation Finished")
+            logging.error(f"Error occurred while counting scenarios: {e}")
+            return 0
 
     def get_increment(self):
         try:

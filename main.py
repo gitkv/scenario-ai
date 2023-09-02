@@ -23,6 +23,7 @@ CONFIG_NAME = os.getenv("CONFIG_NAME", "default")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://api.openai.com")
 YANDEX_TTS_API_KEY = os.getenv("YANDEX_TTS_API_KEY")
+MAX_SCRNARIOS = os.getenv("MAX_SCRNARIOS", 50)
 
 TMP_DIR_BASE=".tmp"
 SCENARIOS_DIR_BASE="scenarios"
@@ -56,8 +57,6 @@ def initialize_voice_generator(config: Config) -> BaseTTS:
 
 CONFIG = load_config(CONFIG_NAME)
 VOICE_GENERATOR = initialize_voice_generator(CONFIG)
-
-scene_generator = SceneGenerator(OPENAI_API_KEY, OPENAI_API_BASE, CONFIG, VOICE_GENERATOR, TMP_DIR_BASE, SCRNARIO_DIR)
 
 logging.info(f"Script started. Config name: {CONFIG_NAME}, voice generator: {CONFIG.voice_generator}, gpt base url: {OPENAI_API_BASE}")
 
@@ -97,11 +96,9 @@ def delete_scenario(scenario_number):
     except Exception as e:
         return f"Failed to delete scenario {scenario_number}: {e}", 500
 
-def generate_scenarios():
-    while True:
-        scene_generator.generate()
+scene_generator = SceneGenerator(OPENAI_API_KEY, OPENAI_API_BASE, CONFIG, VOICE_GENERATOR, TMP_DIR_BASE, SCRNARIO_DIR, MAX_SCRNARIOS)
 
-threading.Thread(target=generate_scenarios, daemon=True).start()
+threading.Thread(target=scene_generator.generate, daemon=True).start()
 
 if __name__ == "__main__":
     app.run(threaded=True, debug=False, port=5000)
