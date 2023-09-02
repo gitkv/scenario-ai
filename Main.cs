@@ -224,7 +224,7 @@ public class AudioScriptManager : MonoBehaviour
     IEnumerator HandleScriptLine(Vector3 lookAtPosition, float duration)
     {
         yield return StartCoroutine(CameraTransition(lookAtPosition, Camera.main.transform.rotation, 2.0f, 1.0f));
-        yield return new WaitForSeconds(duration - 1.65f);
+        yield return new WaitForSeconds(duration - 1.0f);
     }
 
     void PrepareScene()
