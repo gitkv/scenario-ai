@@ -8,10 +8,9 @@ class BaseTTS(ABC):
             raise NotImplementedError("The SUPPORTED_VOICES list must be populated in the subclass.")
         
     @abstractmethod
-    def generate_voice(self, text, voice_id, pos):
+    def generate_voice(self, text: str, voice_id: str, output_dir: str, pos: int):
         if not self.is_voice_supported(voice_id):
             raise ValueError(f"The voice '{voice_id}' is not supported. Choose from {self.SUPPORTED_VOICES}.")
-        pass
         
     def is_voice_supported(self, voice_id):
         return voice_id in self.SUPPORTED_VOICES

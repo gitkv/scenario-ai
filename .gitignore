@@ -6,7 +6,9 @@ script.txt
 *.log
 .tmp
 scenarios
+audio
 base_scenarios.txt
 test.py
 latest_silero_models.yml
 newenv
+myenv

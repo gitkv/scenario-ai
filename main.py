@@ -6,9 +6,12 @@ import yaml
 from dacite import from_dict
 from dotenv import load_dotenv
 from flask import Flask, jsonify, send_file
+from pymongo import MongoClient
 
 from models.config import Config
-from services.scene_generator import SceneGenerator
+from repos import StoryRepository, TopicRepository
+from services.story_generator import StoryGenerator
+from services.topic_generator import TopicGenerator
 from services.voice.base_tts import BaseTTS
 from services.voice.silero_tts import SileroTTS
 from services.voice.yandex_tts import YandexTTS
@@ -25,14 +28,11 @@ OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://api.openai.com")
 YANDEX_TTS_API_KEY = os.getenv("YANDEX_TTS_API_KEY")
 MAX_SCRNARIOS = os.getenv("MAX_SCRNARIOS", 50)
 
-TMP_DIR_BASE=".tmp"
-SCENARIOS_DIR_BASE="scenarios"
+AUDIO_DIR_BASE="audio"
 
-SCRNARIO_DIR = os.path.join(SCENARIOS_DIR_BASE, CONFIG_NAME)
+AUDIO_DIR = os.path.join(AUDIO_DIR_BASE, CONFIG_NAME)
 
-
-os.makedirs(TMP_DIR_BASE, exist_ok=True)
-os.makedirs(SCENARIOS_DIR_BASE, exist_ok=True)
+os.makedirs(AUDIO_DIR, exist_ok=True)
 
 def load_config(config_name) -> Config:
     base_path = os.path.join("config", "base", f"{config_name}.yaml")
@@ -51,7 +51,7 @@ def load_config(config_name) -> Config:
 
 def initialize_voice_generator(config: Config) -> BaseTTS:
     if config.voice_generator == "YandexTTS":
-        return YandexTTS(TMP_DIR_BASE, YANDEX_TTS_API_KEY)
+        return YandexTTS(YANDEX_TTS_API_KEY)
     if config.voice_generator == "SileroTTS":
         return SileroTTS(TMP_DIR_BASE)
 
@@ -96,9 +96,18 @@ def delete_scenario(scenario_number):
     except Exception as e:
         return f"Failed to delete scenario {scenario_number}: {e}", 500
 
-scene_generator = SceneGenerator(OPENAI_API_KEY, OPENAI_API_BASE, CONFIG, VOICE_GENERATOR, TMP_DIR_BASE, SCRNARIO_DIR, MAX_SCRNARIOS)
+client = MongoClient('mongodb://username:password@localhost:27017/')
+db = client[f'{CONFIG_NAME}_scenarios_db']
+totic_collection = db['topics']
+story_collection = db['stories']
+topic_repo = TopicRepository(totic_collection)
+story_repo = StoryRepository(story_collection)
 
-threading.Thread(target=scene_generator.generate, daemon=True).start()
+topic_generator = TopicGenerator(CONFIG.dialogue_data, topic_repo)
+story_generator = StoryGenerator(OPENAI_API_KEY, OPENAI_API_BASE, CONFIG, VOICE_GENERATOR, AUDIO_DIR, MAX_SCRNARIOS, topic_repo, story_repo)
+
 
 if __name__ == "__main__":
+    threading.Thread(target=topic_generator.generate, daemon=True).start()
+    threading.Thread(target=story_generator.generate, daemon=True).start()
     app.run(threaded=True, debug=False, port=5000)
