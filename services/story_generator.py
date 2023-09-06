@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import shutil
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
@@ -19,10 +20,10 @@ from services.voice.base_tts import BaseTTS
 
 
 class StoryGenerator:
-    def __init__(self, openai_api_key: str, openai_api_base: str, config: Config, voice_generator: BaseTTS, audio_dir: str, max_system_stoies: int, topic_repository: TopicRepository, story_repository: StoryRepository):
+    def __init__(self, openai_client: OpenAIApi, config: Config, voice_generator: BaseTTS, audio_dir: str, max_system_stoies: int, topic_repository: TopicRepository, story_repository: StoryRepository):
         self.config = config
         self.audio_dir = audio_dir
-        self.openai_api = OpenAIApi(openai_api_key, openai_api_base)
+        self.openai_api = openai_client
         self.voice_generator = voice_generator
         self.max_system_stoies = max_system_stoies
         self.topic_repository = topic_repository
@@ -35,14 +36,12 @@ class StoryGenerator:
     def generate(self):
         while True:
             
-            self._validate_all_audio_directories()
             story_id_str = self._next_story_id()
-            output_dir = self._create_output_directory(story_id_str)
 
             try:
                 logging.info(f"Generation started for {story_id_str}")
-
-                topic = self._get_next_topic()
+                self._validate_all_audio_directories()
+                topic = self.topic_repository.get_topic_by_priority()
 
                 if not topic:
                     logging.info(f"Not found topics")
@@ -50,12 +49,13 @@ class StoryGenerator:
                     continue
 
                 if topic.topic_type == TopicType.SYSTEM.value and self.story_repository.get_count_by_topic_type(TopicType.SYSTEM) >= self.max_system_stoies:
-                    logging.info(f"Reached the maximum system number of story ({self.max_system_stoies}). Pausing generation.")
+                    logging.info(f"Reached the maximum system number of story ({self.max_system_stoies}). Pausing generation...")
                     time.sleep(10)
                     continue
 
                 story_text_data = self._generate_story_text(topic.text)
                 story_text_data_with_pos = list(enumerate(story_text_data))
+                output_dir = self._create_output_directory(story_id_str)
 
                 audio_files = self._generate_audio_files(output_dir, story_text_data)
                 audio_files = sorted(audio_files, key=lambda x: x[0])
@@ -63,19 +63,19 @@ class StoryGenerator:
 
                 self._validate_audio_files(output_dir, len(story_text_data))
 
-                scenario_list = []
+                story_list = []
                 for pos, audio_file_path in audio_files:
                     speaker, text = self._parse_line(story_text_data_with_pos[pos][1])
-                    scenario_list.append(Scenario(character=speaker, text=text, sound=audio_file_path))
+                    story_list.append(Scenario(character=speaker, text=text, sound=audio_file_path))
 
-                logging.debug(scenario_list)
+                logging.debug(story_list)
                     
                 story = StoryModel(
                     _id=story_id_str,
                     topic_type=topic.topic_type,
                     requestor_name=topic.requestor_name,
                     topic=topic.text,
-                    scenario=scenario_list
+                    scenario=story_list
                 )
                 
                 logging.debug(story)
@@ -91,29 +91,13 @@ class StoryGenerator:
                 logging.error(f"Exception type: {type(e).__name__}")
                 logging.error(f"Exception message: {e}")
                 logging.error(f"Stack trace: {traceback.format_exc()}")
-                self._delete_directory(output_dir)
+                shutil.rmtree(output_dir)
             
             finally:
                 logging.info("Generation finished")
 
     def _next_story_id(self) -> str:
         return str(ObjectId())
-
-    def _get_next_topic(self) -> Topic:
-        topic = self.topic_repository.get_oldest_topic_by_type(TopicType.VIP)
-        if topic:
-            return topic
-
-        topic = self.topic_repository.get_oldest_topic_by_type(TopicType.USER)
-        if topic:
-            return topic
-
-        topic =  self.topic_repository.get_oldest_topic_by_type(TopicType.SYSTEM)
-        if topic:
-            return topic
-        
-        return None
-
     
     def _validate_all_audio_directories(self):
         for subdirectory in os.listdir(self.audio_dir):
@@ -122,7 +106,7 @@ class StoryGenerator:
             if os.path.isdir(full_subdirectory_path):
                 if not os.listdir(full_subdirectory_path):
                     logging.warning(f"Empty directory detected: {full_subdirectory_path}. Deleting directory.")
-                    self._delete_directory(full_subdirectory_path)
+                    shutil.rmtree(full_subdirectory_path)
 
 
     def _create_output_directory(self, increment):
@@ -207,16 +191,3 @@ class StoryGenerator:
     def _get_voice_id(self, speaker):
         return next((char.voice for char in self.config.dialogue_data.characters if char.name == speaker), None)
 
-    def _delete_directory(self, directory):
-        for filename in os.listdir(directory):
-            file_path = os.path.join(directory, filename)
-            try:
-                os.remove(file_path)
-                logging.info(f"Deleted file: {file_path}")
-            except Exception as e:
-                logging.error(f"Error deleting file {file_path}: {e}")
-        try:
-            os.rmdir(directory)
-            logging.info(f"Deleted directory: {directory}")
-        except Exception as e:
-            logging.error(f"Error deleting directory {directory}: {e}")

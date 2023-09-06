@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from bson import ObjectId
 from pymongo import ASCENDING
@@ -29,6 +29,21 @@ class TopicRepository:
             document['_id'] = str(document['_id'])
             return Topic(**document)
         return None
+    
+    def get_topic_by_priority(self) -> Optional[Topic]:
+        document = self.collection.find_one({"topic_type": TopicType.VIP.value})
+        
+        if document is None:
+            document = self.collection.find_one({"topic_type": TopicType.USER.value})
+
+        if document is None:
+            document = self.collection.find_one({"topic_type": TopicType.SYSTEM.value})
+        
+        if document is None:
+            return None
+        
+        document['_id'] = str(document['_id'])
+        return Topic(**document)
 
     def get_n_oldest_topics(self, n: int) -> List[Topic]:
         documents = self.collection.find().sort("created_at", ASCENDING).limit(n)
@@ -42,5 +57,4 @@ class TopicRepository:
         return self.get_topic_by_id(id)
 
     def delete_topic(self, id: str):
-        id = ObjectId(id)
         self.collection.delete_one({"_id": id})

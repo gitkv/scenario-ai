@@ -3,6 +3,7 @@ import random
 import time
 
 from bson import ObjectId
+
 from models.config import DialogueData
 from models.topic import Topic
 from models.topic_type import TopicType
@@ -10,14 +11,15 @@ from repos.topic_repository import TopicRepository
 
 
 class TopicGenerator:
-    def __init__(self, dialogue_data: DialogueData, topic_repository: TopicRepository):
+    def __init__(self, dialogue_data: DialogueData, max_system_topics, topic_repository: TopicRepository):
         self.dialogue_data = dialogue_data
+        self.max_system_topics = max_system_topics
         self.topic_repository = topic_repository
 
     def _generate_topic_text(self) -> str:
         theme_template = random.choice(self.dialogue_data.themes)
         participants = [character.name for character in self.dialogue_data.characters]
-        num_participants = random.randint(2, 4)
+        num_participants = random.randint(2, 3)
         chosen_participants = random.sample(participants, num_participants)
 
         chosen_mood = random.choice(self.dialogue_data.emotions)
@@ -39,17 +41,18 @@ class TopicGenerator:
 
     def generate(self):
         while True:
-            if self.topic_repository.get_total_count() < 10:
-                topic_text = self._generate_topic_text()
-                topic = Topic(
-                    _id=str(ObjectId()),
-                    topic_type=TopicType.SYSTEM.value,
-                    requestor_name=TopicType.SYSTEM.value,
-                    text=topic_text
-                )
-                self.topic_repository.create_topic(topic)
-                logging.info(f"Generated and saved new theme: {topic_text}")
-            else:
-                logging.info("Reached the maximum number of topics (10). Pausing generation.")
+            if self.topic_repository.get_total_count() >= self.max_system_topics:
+                logging.info(f"Reached the maximum number of system topics ({self.max_system_topics}). Pausing generation...")
+                time.sleep(10)
+                continue
+
+            topic_text = self._generate_topic_text()
+            topic = Topic(
+                _id=str(ObjectId()),
+                topic_type=TopicType.SYSTEM.value,
+                requestor_name=TopicType.SYSTEM.value,
+                text=topic_text
+            )
+            self.topic_repository.create_topic(topic)
+            logging.info(f"Generated and saved new theme: {topic_text}")
             
-            time.sleep(10)
