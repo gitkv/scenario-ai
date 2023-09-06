@@ -21,7 +21,21 @@ public class DynamicCamera : MonoBehaviour
     public void ChangeCamera()
     {
         transform.position = cameraPositions[Random.Range(0, cameraPositions.Count)].position;
+        SetRotationTowardsCenter();
+    }
 
+    public void ResetCamera()
+    {
+        if (cameraPositions.Count > 0)
+        {
+            transform.position = cameraPositions[0].position;
+        }
+        
+        SetRotationTowardsCenter();
+    }
+
+    private void SetRotationTowardsCenter()
+    {
         Vector3 targetDirection = centerPointingPosition - transform.position;
         Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
         transform.rotation = targetRotation;

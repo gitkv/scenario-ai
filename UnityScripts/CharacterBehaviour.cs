@@ -86,10 +86,16 @@ public class CharacterBehaviour : MonoBehaviour
     {
         if (characterState == CharacterState.WALKING)
         {
-            transform.position = Vector3.MoveTowards(transform.position, new Vector3(destination.x, transform.position.y, destination.y), walkSpeed * Time.deltaTime);
-            transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(new Vector3(destination.x, transform.position.y, destination.y) - transform.position, Vector3.up), 10f * Time.deltaTime);
+            Vector3 targetPosition = new Vector3(destination.x, transform.position.y, destination.y);
+            Vector3 direction = targetPosition - transform.position;
+            if (direction != Vector3.zero)
+            {
+                transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(direction, Vector3.up), 10f * Time.deltaTime);
+            }
 
-            if (Vector3.Distance(transform.position, new Vector3(destination.x, transform.position.y, destination.y)) <= 0.01f)
+            transform.position = Vector3.MoveTowards(transform.position, targetPosition, walkSpeed * Time.deltaTime);
+            
+            if (Vector3.Distance(transform.position, targetPosition) <= 0.01f)
             {
                 CancelInvoke("ChangeState");
                 ChangeState();
@@ -97,7 +103,11 @@ public class CharacterBehaviour : MonoBehaviour
         }
         else if (characterState == CharacterState.TALKING)
         {
-            transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(defaultLookLocation - transform.position, Vector3.up), 10f * Time.deltaTime);
+            Vector3 direction = defaultLookLocation - transform.position;
+            if (direction != Vector3.zero)
+            {
+                transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(direction, Vector3.up), 10f * Time.deltaTime);
+            }
         }
         else if (characterState == CharacterState.IDLING)
         {
@@ -105,13 +115,22 @@ public class CharacterBehaviour : MonoBehaviour
 
             if (cbTarget != null)
             {
-                transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(cbTarget.gameObject.transform.position - transform.position, Vector3.up), 10f * Time.deltaTime);
+                Vector3 direction = cbTarget.gameObject.transform.position - transform.position;
+                if (direction != Vector3.zero)
+                {
+                    transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(direction, Vector3.up), 10f * Time.deltaTime);
+                }
             }
         }
-        
+
         if (characterState == CharacterState.TALKING && talkingTo != null)
         {
-            transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(talkingTo.gameObject.transform.position - transform.position, Vector3.up), 10f * Time.deltaTime);
+            Vector3 direction = talkingTo.gameObject.transform.position - transform.position;
+            if (direction != Vector3.zero)
+            {
+                transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(direction, Vector3.up), 10f * Time.deltaTime);
+            }
         }
     }
+
 }

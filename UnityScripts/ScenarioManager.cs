@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
@@ -73,24 +74,29 @@ public class ScenarioManager : MonoBehaviour
         else
         {
             StartCoroutine(DeleteStory(story.id));
-            Invoke("ShowLaterImageAndPlayClip", 0.5f);
+            Invoke("StartEndOfScenarioSequence", 1f);
         }
+    }
+
+    void StartEndOfScenarioSequence()
+    {
+        ShowLaterImageAndPlayClip();
+        Invoke("HideLaterImageAndLoadNextScenario", 4f);
     }
 
     void ShowLaterImageAndPlayClip()
     {
-
         subtitles.text = "";
-        requestor.text = iddleText;
         laterImage.SetActive(true);
         dialogueSource.clip = laterClip;
         dialogueSource.Play();
-
-        Invoke("HideLaterImageAndLoadNextScenario", 4f);
     }
 
     void HideLaterImageAndLoadNextScenario()
     {
+        StopTalkAnimations(null);
+        dynamicCamera.ResetCamera();
+
         laterImage.SetActive(false);
 
         LoadStory();
@@ -106,7 +112,7 @@ public class ScenarioManager : MonoBehaviour
         CharacterBehaviour cbTarget = GetCameraTarget(story.scenario[scenarioProgress].character);
         cameraTarget = cbTarget != null ? cbTarget.gameObject.transform : null;
 
-        if (Random.Range(0, 2) == 0)
+        if (UnityEngine.Random.Range(0, 2) == 0)
         {
             dynamicCamera.ChangeCamera();
         }
@@ -160,6 +166,14 @@ public class ScenarioManager : MonoBehaviour
         return null;
     }
 
+    private void SetIddleTextIfNecessary()
+    {
+        if (story == null)
+        {
+            requestor.text = iddleText;
+        }
+    }
+
     // Update is called once per frame
     IEnumerator GetStory()
     {
@@ -168,27 +182,66 @@ public class ScenarioManager : MonoBehaviour
         using (UnityWebRequest webRequest = UnityWebRequest.Get($"{serverURL}/story/getStory"))
         {
             yield return webRequest.SendWebRequest();
-            story = JsonUtility.FromJson<StoryModel>(webRequest.downloadHandler.text);
 
-            //No story found
-            if (story == null)
+            if (webRequest.result == UnityWebRequest.Result.ConnectionError || webRequest.result == UnityWebRequest.Result.ProtocolError)
             {
-                Invoke("LoadStory", 2f);
+                Debug.LogError("Server error: " + webRequest.error);
+                SetIddleTextIfNecessary();
+                StopTalkAnimations(null); 
+                Invoke("LoadStory", 5f);
                 yield break;
             }
 
-            //Initialize entire list with nulls so you can substitute at the right place as they come back asynchronously.
-            for (int i = 0; i < story.scenario.Count; i++)
+            if (webRequest.responseCode == 404)
             {
-                audioClips.Add(null);
+                Debug.LogWarning("No story found, waiting to try again.");
+                SetIddleTextIfNecessary();
+                StopTalkAnimations(null); 
+                Invoke("LoadStory", 5f);
+                yield break;
             }
 
-            for (int i = 0; i < story.scenario.Count; i++)
+            if (webRequest.responseCode == 200)
             {
-                StartCoroutine(GetAudioClip(story.scenario[i].sound, i));
-            }
+                try
+                {
+                    story = JsonUtility.FromJson<StoryModel>(webRequest.downloadHandler.text);
+                    if (story == null)
+                    {
+                        Debug.LogWarning("Received empty story, waiting to try again.");
+                        SetIddleTextIfNecessary();
+                        StopTalkAnimations(null); 
+                        Invoke("LoadStory", 5f);
+                        yield break;
+                    }
 
-            Invoke("CheckForSounds", 3f);
+                    for (int i = 0; i < story.scenario.Count; i++)
+                    {
+                        audioClips.Add(null);
+                    }
+
+                    for (int i = 0; i < story.scenario.Count; i++)
+                    {
+                        StartCoroutine(GetAudioClip(story.scenario[i].sound, i));
+                    }
+
+                    Invoke("CheckForSounds", 3f);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError("JSON parse error: " + e.Message);
+                    SetIddleTextIfNecessary();
+                    StopTalkAnimations(null); 
+                    Invoke("LoadStory", 5f);
+                }
+            }
+            else
+            {
+                Debug.LogError("Unexpected server response code: " + webRequest.responseCode);
+                SetIddleTextIfNecessary();
+                StopTalkAnimations(null); 
+                Invoke("LoadStory", 5f);
+            }
         }
     }
 
@@ -212,6 +265,11 @@ public class ScenarioManager : MonoBehaviour
             }
         }
 
+        Invoke("StartPlayingScenario", 0.5f);
+    }
+
+    void StartPlayingScenario()
+    {
         scenarioProgress = 0;
         requestor.text = "сценарий от: " + story.requestor_name;
         PlayScenario();
