@@ -84,7 +84,7 @@ class StoryGenerator:
                 
             except OpenAIApiException as e:
                 logging.error(e)
-                exit(1)
+                time.sleep(30)
 
             except Exception as e:
                 logging.error(f"An error occurred while generating: {e}, Aborting")
@@ -92,6 +92,7 @@ class StoryGenerator:
                 logging.error(f"Exception message: {e}")
                 logging.error(f"Stack trace: {traceback.format_exc()}")
                 shutil.rmtree(output_dir)
+                time.sleep(10)
             
             finally:
                 logging.info("Generation finished")
