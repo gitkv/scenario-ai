@@ -5,100 +5,69 @@ import threading
 import yaml
 from dacite import from_dict
 from dotenv import load_dotenv
-from flask import Flask, jsonify, send_file
+from flask import Flask
+from pymongo import MongoClient
 
 from models.config import Config
-from services.scene_generator import SceneGenerator
+from repos import StoryRepository, TopicRepository
+from services.openai import OpenAIApi
+from services.story_generator import StoryGenerator
+from services.topic_generator import TopicGenerator
 from services.voice.base_tts import BaseTTS
 from services.voice.silero_tts import SileroTTS
 from services.voice.yandex_tts import YandexTTS
-
-app = Flask(__name__)
-
-load_dotenv()
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-CONFIG_NAME = os.getenv("CONFIG_NAME", "default")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://api.openai.com")
-YANDEX_TTS_API_KEY = os.getenv("YANDEX_TTS_API_KEY")
-MAX_SCRNARIOS = os.getenv("MAX_SCRNARIOS", 50)
-
-TMP_DIR_BASE=".tmp"
-SCENARIOS_DIR_BASE="scenarios"
-
-SCRNARIO_DIR = os.path.join(SCENARIOS_DIR_BASE, CONFIG_NAME)
+from story_controller import StoryController
 
 
-os.makedirs(TMP_DIR_BASE, exist_ok=True)
-os.makedirs(SCENARIOS_DIR_BASE, exist_ok=True)
-
-def load_config(config_name) -> Config:
+def load_config(config_name: str) -> Config:
     base_path = os.path.join("config", "base", f"{config_name}.yaml")
     custom_path = os.path.join("config", "custom", f"{config_name}.yaml")
 
     if os.path.exists(custom_path):
-        with open(custom_path, 'r') as file:
+        with open(custom_path, 'r', encoding='utf-8') as file:
             raw_config = yaml.safe_load(file)
     elif os.path.exists(base_path):
-        with open(base_path, 'r') as file:
+        with open(base_path, 'r', encoding='utf-8') as file:
             raw_config = yaml.safe_load(file)
     else:
         raise ValueError(f"No configuration found for {config_name}")
 
     return from_dict(data_class=Config, data=raw_config)
 
-def initialize_voice_generator(config: Config) -> BaseTTS:
+def initialize_voice_generator(config: Config, yandex_tts_api_key: str) -> BaseTTS:
     if config.voice_generator == "YandexTTS":
-        return YandexTTS(TMP_DIR_BASE, YANDEX_TTS_API_KEY)
+        return YandexTTS(yandex_tts_api_key)
     if config.voice_generator == "SileroTTS":
         return SileroTTS(TMP_DIR_BASE)
 
-CONFIG = load_config(CONFIG_NAME)
-VOICE_GENERATOR = initialize_voice_generator(CONFIG)
+def create_app(story_repository: StoryRepository) -> Flask:
+    story_controller = StoryController(story_repository)
+    app = Flask(__name__)
+    app.register_blueprint(story_controller.story_routes)
+    return app
 
-logging.info(f"Script started. Config name: {CONFIG_NAME}, voice generator: {CONFIG.voice_generator}, gpt base url: {OPENAI_API_BASE}")
+def main():
+    load_dotenv()
 
-@app.route("/scenarios", methods=["GET"])
-def get_scenarios():
-    scenarios = []
-    for scenario_dir in os.listdir(SCRNARIO_DIR):
-        scenario_path = os.path.join(SCRNARIO_DIR, scenario_dir)
-        audio_file_path = os.path.join(scenario_path, "output.mp3")
-        script_file_path = os.path.join(scenario_path, "script.txt")
-        if os.path.exists(audio_file_path) and os.path.exists(script_file_path):
-            scenarios.append(int(scenario_dir))
-    return jsonify(scenarios)
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-@app.route("/audio/<int:scenario_number>", methods=["GET"])
-def audio(scenario_number):
-    audio_file_path = os.path.join(SCRNARIO_DIR, str(scenario_number), "output.mp3")
-    if not os.path.exists(audio_file_path):
-        return "Error", 404
-    return send_file(audio_file_path)
+    config_name = os.getenv("CONFIG_NAME", "default")
+    audio_dir = os.path.join("audio", config_name)
+    config = load_config(config_name)
+    openai_client = OpenAIApi(os.getenv("OPENAI_API_KEY"), os.getenv("OPENAI_API_BASE", "https://api.openai.com"))
+    voice_generator = initialize_voice_generator(config, os.getenv("YANDEX_TTS_API_KEY"))
+    mongo_client = MongoClient('mongodb://username:password@localhost:27017/admin')
+    mongo_db = mongo_client[f'{config_name}_scenarios_db']
+    topic_repo = TopicRepository(mongo_db['topics'])
+    story_repo = StoryRepository(audio_dir, mongo_db['stories'])
+    topic_generator = TopicGenerator(config.dialogue_data, int(os.getenv("MAX_SYSTEM_TOPICS", 10)), topic_repo)
+    story_generator = StoryGenerator(openai_client, config, voice_generator, audio_dir, int(os.getenv("MAX_SYSTEM_STORIES", 50)), topic_repo, story_repo)
 
-@app.route("/script/<int:scenario_number>", methods=["GET"])
-def script(scenario_number):
-    script_file_path = os.path.join(SCRNARIO_DIR, str(scenario_number), "script.txt")
-    if not os.path.exists(script_file_path):
-        return "Error", 404
-    return send_file(script_file_path)
+    threading.Thread(target=topic_generator.generate, daemon=True).start()
+    threading.Thread(target=story_generator.generate, daemon=True).start()
 
-@app.route("/delete/<int:scenario_number>", methods=["DELETE"])
-def delete_scenario(scenario_number):
-    scenario_dir = os.path.join(SCRNARIO_DIR, str(scenario_number))
-    try:
-        for filename in os.listdir(scenario_dir):
-            os.remove(os.path.join(scenario_dir, filename))
-        os.rmdir(scenario_dir)
-        return "Deleted", 200
-    except Exception as e:
-        return f"Failed to delete scenario {scenario_number}: {e}", 500
-
-scene_generator = SceneGenerator(OPENAI_API_KEY, OPENAI_API_BASE, CONFIG, VOICE_GENERATOR, TMP_DIR_BASE, SCRNARIO_DIR, MAX_SCRNARIOS)
-
-threading.Thread(target=scene_generator.generate, daemon=True).start()
+    app = create_app(story_repo)
+    app.run(threaded=True, debug=False, port=5000)
 
 if __name__ == "__main__":
-    app.run(threaded=True, debug=False, port=5000)
+    main()

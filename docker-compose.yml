@@ -1,10 +1,38 @@
 version: '3'
 services:
-  app:
-    image: python:3.10-alpine
+  # app:
+  #   image: python:3.9-slim
+  #   volumes:
+  #     - .:/app
+  #   working_dir: /app
+  #   command: sh -c "pip install -r requirements.txt && python main.py"
+  #   environment:
+  #     - PYTHONUNBUFFERED=1
+  #   depends_on:
+  #     - mongo
+
+  mongo:
+    image: mongo:jammy
+    restart: always
+    network_mode: "host"
+    ports:
+      - 27017:27017
     volumes:
-      - .:/app
-    working_dir: /app
-    command: sh -c "pip install -r requirements.txt && python main.py"
+      - mongodata:/data/db
     environment:
-      - PYTHONUNBUFFERED=1
+      - MONGO_INITDB_ROOT_USERNAME=username
+      - MONGO_INITDB_ROOT_PASSWORD=password
+
+  mongo-express:
+    image: mongo-express
+    restart: always
+    network_mode: "host"
+    ports:
+      - 8181:8081
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: username
+      ME_CONFIG_MONGODB_ADMINPASSWORD: password
+      ME_CONFIG_MONGODB_URL: mongodb://username:password@localhost:27017/
+
+volumes:
+  mongodata:
