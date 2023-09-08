@@ -85,13 +85,17 @@ class StoryGenerator:
             except OpenAIApiException as e:
                 logging.error(e)
                 time.sleep(30)
+            
+            except ValueError as e:
+                logging.error(f"Value error: {e}. Skipping current topic.")
+                self.topic_repository.delete_topic(topic.id)
 
             except Exception as e:
                 logging.error(f"An error occurred while generating: {e}, Aborting")
                 logging.error(f"Exception type: {type(e).__name__}")
                 logging.error(f"Exception message: {e}")
                 logging.error(f"Stack trace: {traceback.format_exc()}")
-                shutil.rmtree(output_dir)
+                self.safe_remove_directory(output_dir)
                 time.sleep(10)
             
             finally:
@@ -107,7 +111,7 @@ class StoryGenerator:
             if os.path.isdir(full_subdirectory_path):
                 if not os.listdir(full_subdirectory_path):
                     logging.warning(f"Empty directory detected: {full_subdirectory_path}. Deleting directory.")
-                    shutil.rmtree(full_subdirectory_path)
+                    self.safe_remove_directory(full_subdirectory_path)
 
 
     def _create_output_directory(self, increment):
@@ -191,4 +195,11 @@ class StoryGenerator:
 
     def _get_voice_id(self, speaker):
         return next((char.voice for char in self.config.dialogue_data.characters if char.name == speaker), None)
+    
+    def safe_remove_directory(self, path):
+        try:
+            if os.path.exists(path):
+                shutil.rmtree(path)
+        except Exception as e:
+            logging.error(f"Error while removing directory {path}: {e}")
 
