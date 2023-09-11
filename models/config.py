@@ -18,5 +18,6 @@ class DialogueData:
 @dataclass
 class Config:
     system_prompt: str
+    telegram_token: str
     voice_generator: str
     dialogue_data: DialogueData

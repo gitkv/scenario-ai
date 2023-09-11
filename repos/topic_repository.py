@@ -1,11 +1,11 @@
 from typing import List, Optional
 
 from bson import ObjectId
-from pymongo import ASCENDING
+from pymongo import DESCENDING, ASCENDING
 from pymongo.collection import Collection
 
 from models.topic import Topic
-from models.topic_type import TopicType
+from models.topic_priority import TopicPriority
 
 
 class TopicRepository:
@@ -23,30 +23,29 @@ class TopicRepository:
             return Topic(**document)
         return None
     
-    def get_oldest_topic_by_type(self, topic_type: TopicType) -> Topic:
-        document = self.collection.find_one({"topic_type": topic_type.value}, sort=[("created_at", ASCENDING)])
+    def get_oldest_topic_by_topic_priority(self, topic_priority: TopicPriority) -> Topic:
+        document = self.collection.find_one({"topic_priority": topic_priority.value}, sort=[("created_at", ASCENDING)])
         if document:
             document['_id'] = str(document['_id'])
             return Topic(**document)
         return None
     
     def get_topic_by_priority(self) -> Optional[Topic]:
-        document = self.collection.find_one({"topic_type": TopicType.VIP.value})
-        
-        if document is None:
-            document = self.collection.find_one({"topic_type": TopicType.USER.value})
+        document = self.collection.find_one(
+            sort=[("topic_priority", DESCENDING), ("created_at", ASCENDING)]
+        )
 
         if document is None:
-            document = self.collection.find_one({"topic_type": TopicType.SYSTEM.value})
-        
-        if document is None:
             return None
-        
+
         document['_id'] = str(document['_id'])
         return Topic(**document)
 
     def get_n_oldest_topics(self, n: int) -> List[Topic]:
-        documents = self.collection.find().sort("created_at", ASCENDING).limit(n)
+        documents = self.collection.find().sort(
+            [("topic_priority", DESCENDING), ("created_at", ASCENDING)]
+        ).limit(n)
+
         return [Topic(**doc) for doc in documents]
 
     def get_total_count(self) -> int:

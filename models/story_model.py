@@ -11,7 +11,7 @@ class Scenario(BaseModel):
 
 class StoryModel(BaseModel):
     id: str = Field(..., alias='_id')
-    topic_type: str
+    topic_priority: int
     requestor_name: str
     topic: str
     scenario: List[Scenario]

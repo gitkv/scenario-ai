@@ -16,6 +16,7 @@ from services.topic_generator import TopicGenerator
 from services.voice.base_tts import BaseTTS
 from services.voice.silero_tts import SileroTTS
 from services.voice.yandex_tts import YandexTTS
+from services.telegram_service import TelegramService
 from story_controller import StoryController
 
 
@@ -46,6 +47,10 @@ def create_app(story_repository: StoryRepository) -> Flask:
     app.register_blueprint(story_controller.story_routes)
     return app
 
+def run_flask_app(story_repo):
+    app = create_app(story_repo)
+    app.run(threaded=True, debug=False, port=5000)
+
 def main():
     load_dotenv()
 
@@ -61,13 +66,14 @@ def main():
     topic_repo = TopicRepository(mongo_db['topics'])
     story_repo = StoryRepository(audio_dir, mongo_db['stories'])
     topic_generator = TopicGenerator(config.dialogue_data, int(os.getenv("MAX_SYSTEM_TOPICS", 10)), topic_repo)
-    story_generator = StoryGenerator(openai_client, config, voice_generator, audio_dir, int(os.getenv("MAX_SYSTEM_STORIES", 50)), topic_repo, story_repo)
+    story_generator = StoryGenerator(openai_client, config, voice_generator, audio_dir, int(os.getenv("MAX_SYSTEM_STORIES", 2)), topic_repo, story_repo)
+    telegram_service = TelegramService(config.telegram_token, topic_repo)
 
     threading.Thread(target=topic_generator.generate, daemon=True).start()
     threading.Thread(target=story_generator.generate, daemon=True).start()
+    threading.Thread(target=run_flask_app, args=(story_repo,)).start()
 
-    app = create_app(story_repo)
-    app.run(threaded=True, debug=False, port=5000)
+    telegram_service.run()
 
 if __name__ == "__main__":
     main()

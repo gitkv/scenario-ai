@@ -2,10 +2,11 @@ import os
 import shutil
 from typing import Optional
 
+from pymongo import ASCENDING, DESCENDING
 from pymongo.collection import Collection
 
 from models.story_model import StoryModel
-from models.topic_type import TopicType
+from models.topic_priority import TopicPriority
 
 
 class StoryRepository:
@@ -39,20 +40,16 @@ class StoryRepository:
     def get_total_count(self) -> int:
         return self.collection.count_documents({})
 
-    def get_count_by_topic_type(self, topic_type: TopicType) -> int:
-        return self.collection.count_documents({"topic_type": topic_type.value})
+    def get_count_by_topic_priority(self, topic_priority: TopicPriority) -> int:
+        return self.collection.count_documents({"topic_priority": topic_priority.value})
     
     def get_story_by_priority(self) -> Optional[StoryModel]:
-        document = self.collection.find_one({"topic_type": TopicType.VIP.value})
-        
-        if document is None:
-            document = self.collection.find_one({"topic_type": TopicType.USER.value})
+        document = self.collection.find_one(
+            sort=[("topic_priority", DESCENDING), ("created_at", ASCENDING)]
+        )
 
         if document is None:
-            document = self.collection.find_one({"topic_type": TopicType.SYSTEM.value})
-        
-        if document is None:
             return None
-        
+
         document['_id'] = str(document['_id'])
         return StoryModel(**document)

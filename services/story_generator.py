@@ -13,7 +13,7 @@ from bson import ObjectId
 from models.config import Config
 from models.story_model import Scenario, StoryModel
 from models.topic import Topic
-from models.topic_type import TopicType
+from models.topic_priority import TopicPriority
 from repos import StoryRepository, TopicRepository
 from services.openai import OpenAIApi, OpenAIApiException
 from services.voice.base_tts import BaseTTS
@@ -48,7 +48,7 @@ class StoryGenerator:
                     time.sleep(10)
                     continue
 
-                if topic.topic_type == TopicType.SYSTEM.value and self.story_repository.get_count_by_topic_type(TopicType.SYSTEM) >= self.max_system_stoies:
+                if topic.topic_priority == TopicPriority.SYSTEM.value and self.story_repository.get_count_by_topic_priority(TopicPriority.SYSTEM) >= self.max_system_stoies:
                     logging.info(f"Reached the maximum system number of story ({self.max_system_stoies}). Pausing generation...")
                     time.sleep(10)
                     continue
@@ -72,7 +72,7 @@ class StoryGenerator:
                     
                 story = StoryModel(
                     _id=story_id_str,
-                    topic_type=topic.topic_type,
+                    topic_priority=topic.topic_priority,
                     requestor_name=topic.requestor_name,
                     topic=topic.text,
                     scenario=story_list

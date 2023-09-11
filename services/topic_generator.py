@@ -6,7 +6,7 @@ from bson import ObjectId
 
 from models.config import DialogueData
 from models.topic import Topic
-from models.topic_type import TopicType
+from models.topic_priority import TopicPriority
 from repos.topic_repository import TopicRepository
 
 
@@ -47,12 +47,11 @@ class TopicGenerator:
                 continue
 
             topic_text = self._generate_topic_text()
-            topic = Topic(
+            self.topic_repository.create_topic(Topic(
                 _id=str(ObjectId()),
-                topic_type=TopicType.SYSTEM.value,
-                requestor_name=TopicType.SYSTEM.value,
+                topic_priority=TopicPriority.SYSTEM.value,
+                requestor_name=TopicPriority.SYSTEM.name,
                 text=topic_text
-            )
-            self.topic_repository.create_topic(topic)
+            ))
             logging.info(f"Generated and saved new theme: {topic_text}")
             
