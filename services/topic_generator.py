@@ -19,7 +19,7 @@ class TopicGenerator:
     def _generate_topic_text(self) -> str:
         theme_template = random.choice(self.dialogue_data.themes)
         participants = [character.name for character in self.dialogue_data.characters]
-        num_participants = random.randint(2, 3)
+        num_participants = random.randint(2, len(participants))
         chosen_participants = random.sample(participants, num_participants)
 
         chosen_mood = random.choice(self.dialogue_data.emotions)

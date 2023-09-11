@@ -18,7 +18,8 @@ class OpenAIApi:
                 messages=[
                     {"role": "system", "content": script},
                     {"role": "user", "content": content},
-                ]
+                ],
+                temperature=1
             )
             logging.debug(f"Script reply {reply}")
 

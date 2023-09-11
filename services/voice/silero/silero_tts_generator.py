@@ -81,8 +81,7 @@ class Stats:
         self.wave_data_current = 0
 
 class SileroTTSGenerator:
-    def __init__(self, output_dir):
-        self.output_dir = output_dir
+    def __init__(self):
         self.model_id = 'v3_1_ru'
         self.language = 'ru'
         self.put_accent = True
@@ -255,8 +254,7 @@ class SileroTTSGenerator:
         audio_size = self.wave_header_size
         wave_file_number = 0
         next_chunk_size = 0
-        wf = self.init_wave_file(os.path.join(self.output_dir, output_filename),
-                                 self.wave_channels, self.wave_sample_width, self.sample_rate)
+        wf = self.init_wave_file(output_filename, self.wave_channels, self.wave_sample_width, self.sample_rate)
         
         for line in lines:
             if line == '\n' or line == '':

@@ -38,7 +38,7 @@ def initialize_voice_generator(config: Config, yandex_tts_api_key: str) -> BaseT
     if config.voice_generator == "YandexTTS":
         return YandexTTS(yandex_tts_api_key)
     if config.voice_generator == "SileroTTS":
-        return SileroTTS(TMP_DIR_BASE)
+        return SileroTTS()
 
 def create_app(story_repository: StoryRepository) -> Flask:
     story_controller = StoryController(story_repository)
@@ -61,7 +61,7 @@ def main():
     topic_repo = TopicRepository(mongo_db['topics'])
     story_repo = StoryRepository(audio_dir, mongo_db['stories'])
     topic_generator = TopicGenerator(config.dialogue_data, int(os.getenv("MAX_SYSTEM_TOPICS", 10)), topic_repo)
-    story_generator = StoryGenerator(openai_client, config, voice_generator, audio_dir, int(os.getenv("MAX_SYSTEM_STORIES", 300)), topic_repo, story_repo)
+    story_generator = StoryGenerator(openai_client, config, voice_generator, audio_dir, int(os.getenv("MAX_SYSTEM_STORIES", 50)), topic_repo, story_repo)
 
     threading.Thread(target=topic_generator.generate, daemon=True).start()
     threading.Thread(target=story_generator.generate, daemon=True).start()
