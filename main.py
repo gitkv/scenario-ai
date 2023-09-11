@@ -11,12 +11,13 @@ from pymongo import MongoClient
 from models.config import Config
 from repos import StoryRepository, TopicRepository
 from services.openai import OpenAIApi
+from services.rss_news_service import RSSNewsService
 from services.story_generator import StoryGenerator
+from services.telegram_service import TelegramService
 from services.topic_generator import TopicGenerator
 from services.voice.base_tts import BaseTTS
 from services.voice.silero_tts import SileroTTS
 from services.voice.yandex_tts import YandexTTS
-from services.telegram_service import TelegramService
 from story_controller import StoryController
 
 
@@ -68,9 +69,11 @@ def main():
     topic_generator = TopicGenerator(config.dialogue_data, int(os.getenv("MAX_SYSTEM_TOPICS", 10)), topic_repo)
     story_generator = StoryGenerator(openai_client, config, voice_generator, audio_dir, int(os.getenv("MAX_SYSTEM_STORIES", 2)), topic_repo, story_repo)
     telegram_service = TelegramService(config.telegram_token, topic_repo)
+    rss_news_service = RSSNewsService(os.getenv("RSS_URL"), topic_repo)
 
     threading.Thread(target=topic_generator.generate, daemon=True).start()
     threading.Thread(target=story_generator.generate, daemon=True).start()
+    threading.Thread(target=rss_news_service.run, daemon=True).start()
     threading.Thread(target=run_flask_app, args=(story_repo,)).start()
 
     telegram_service.run()

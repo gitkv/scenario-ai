@@ -1,10 +1,14 @@
 import logging
-from telegram import Update, InlineQueryResultArticle, InputTextMessageContent
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
+
+from bson import ObjectId
+from telegram import Update
+from telegram.ext import (ApplicationBuilder, CommandHandler, ContextTypes,
+                          MessageHandler, filters)
+
 from models.topic import Topic
 from models.topic_priority import TopicPriority
 from repos.topic_repository import TopicRepository
-from bson import ObjectId
+
 
 class TelegramService:
     def __init__(self, token: str, topic_repository: TopicRepository):
