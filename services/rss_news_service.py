@@ -1,6 +1,7 @@
 import feedparser
 import logging
 import time
+import re
 from models.topic import Topic
 from repos.topic_repository import TopicRepository
 from models.topic_priority import TopicPriority
@@ -8,41 +9,43 @@ from bson import ObjectId
 from datetime import datetime
 
 class RSSNewsService:
-    def __init__(self, rss_url: str, topic_repository: TopicRepository, interval: int = 3600):
-        self.rss_url = rss_url
+    def __init__(self, rss_urls: list, topic_repository: TopicRepository, interval: int = 600):
+        self.rss_urls = rss_urls
         self.topic_repository = topic_repository
         self.interval = interval
-        self.latest_news_date = None
+
+    def remove_html_tags(self, text: str) -> str:
+        clean = re.compile('<.*?>')
+        return re.sub(clean, '', text)
 
     def fetch_news(self):
-        feed = feedparser.parse(self.rss_url)
-        
-        # Собираем все новости в список
         news_entries = []
-        for entry in feed.entries:
-            news_date = datetime(*entry.published_parsed[:6])
-            if self.latest_news_date and self.latest_news_date >= news_date:
-                continue
-            news_entries.append(entry)
+        for rss_url in self.rss_urls:
+            last_news_date = self.topic_repository.get_latest_rss_topic_date()
+            feed = feedparser.parse(rss_url)
+            
+            for entry in feed.entries:
+                news_date = datetime(*entry.published_parsed[:6])
+                if last_news_date and last_news_date >= news_date:
+                    continue
+                news_entries.append(entry)
 
-        # Сортируем новости по дате (сначала самые старые)
-        sorted_entries = sorted(news_entries, key=lambda x: datetime(*x.published_parsed[:6]))
+            news_entries = sorted(news_entries, key=lambda x: datetime(*x.published_parsed[:6]))
 
-        for entry in sorted_entries:
-            full_text = entry.get('rbc_news:full-text', '')
-            topic_text = f"{entry.title}\n\n{full_text}"
-
+        for entry in news_entries:
+            clean_description = self.remove_html_tags(entry.description)
+            topic_text = f"Грубо с матом обсуждают новость о том что, {entry.title}. {clean_description}"
+            date = datetime(*entry.published_parsed[:6])
             topic = Topic(
                 _id=str(ObjectId()),
                 topic_priority=TopicPriority.RSS.value,
                 requestor_name="RSS",
-                text=topic_text
+                is_allowed=True,
+                text=topic_text,
+                created_at=date
             )
             self.topic_repository.create_topic(topic)
             logging.info(f"Added news topic from RSS: {entry.title}")
-            
-            # Обновляем latest_news_date после добавления каждой новости
-            self.latest_news_date = datetime(*entry.published_parsed[:6])
 
     def run(self):
         while True:

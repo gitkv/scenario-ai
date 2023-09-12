@@ -19,5 +19,6 @@ class DialogueData:
 class Config:
     system_prompt: str
     telegram_token: str
+    rss_urls: List[str]
     voice_generator: str
     dialogue_data: DialogueData

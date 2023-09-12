@@ -51,6 +51,7 @@ class TopicGenerator:
                 _id=str(ObjectId()),
                 topic_priority=TopicPriority.SYSTEM.value,
                 requestor_name=TopicPriority.SYSTEM.name,
+                is_allowed=True,
                 text=topic_text
             ))
             logging.info(f"Generated and saved new theme: {topic_text}")

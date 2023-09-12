@@ -1,7 +1,8 @@
+import datetime
 from typing import List, Optional
 
 from bson import ObjectId
-from pymongo import DESCENDING, ASCENDING
+from pymongo import ASCENDING, DESCENDING
 from pymongo.collection import Collection
 
 from models.topic import Topic
@@ -23,15 +24,9 @@ class TopicRepository:
             return Topic(**document)
         return None
     
-    def get_oldest_topic_by_topic_priority(self, topic_priority: TopicPriority) -> Topic:
-        document = self.collection.find_one({"topic_priority": topic_priority.value}, sort=[("created_at", ASCENDING)])
-        if document:
-            document['_id'] = str(document['_id'])
-            return Topic(**document)
-        return None
-    
     def get_topic_by_priority(self) -> Optional[Topic]:
         document = self.collection.find_one(
+            {"is_allowed": True},
             sort=[("topic_priority", DESCENDING), ("created_at", ASCENDING)]
         )
 
@@ -42,7 +37,9 @@ class TopicRepository:
         return Topic(**document)
 
     def get_n_oldest_topics(self, n: int) -> List[Topic]:
-        documents = self.collection.find().sort(
+        documents = self.collection.find(
+            {"is_allowed": True}
+        ).sort(
             [("topic_priority", DESCENDING), ("created_at", ASCENDING)]
         ).limit(n)
 
@@ -57,3 +54,13 @@ class TopicRepository:
 
     def delete_topic(self, id: str):
         self.collection.delete_one({"_id": id})
+    
+    def get_latest_rss_topic_date(self) -> Optional[datetime.datetime]:
+        document = self.collection.find_one(
+            {"topic_priority": TopicPriority.RSS.value},
+            sort=[("created_at", DESCENDING)]
+        )
+        
+        if document:
+            return document['created_at']
+        return None

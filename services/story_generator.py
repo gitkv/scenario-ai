@@ -39,7 +39,7 @@ class StoryGenerator:
             story_id_str = self._next_story_id()
 
             try:
-                logging.info(f"Generation started for {story_id_str}")
+                logging.info(f"Generation story started for {story_id_str}")
                 self._validate_all_audio_directories()
                 topic = self.topic_repository.get_topic_by_priority()
 

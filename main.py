@@ -68,8 +68,8 @@ def main():
     story_repo = StoryRepository(audio_dir, mongo_db['stories'])
     topic_generator = TopicGenerator(config.dialogue_data, int(os.getenv("MAX_SYSTEM_TOPICS", 10)), topic_repo)
     story_generator = StoryGenerator(openai_client, config, voice_generator, audio_dir, int(os.getenv("MAX_SYSTEM_STORIES", 2)), topic_repo, story_repo)
-    telegram_service = TelegramService(config.telegram_token, topic_repo)
-    rss_news_service = RSSNewsService(os.getenv("RSS_URL"), topic_repo)
+    telegram_service = TelegramService(config.telegram_token, topic_repo, os.getenv("TELEGRAM_MODERATOR_ID"))
+    rss_news_service = RSSNewsService(config.rss_urls, topic_repo)
 
     threading.Thread(target=topic_generator.generate, daemon=True).start()
     threading.Thread(target=story_generator.generate, daemon=True).start()

@@ -12,7 +12,7 @@ class OpenAIApi:
 
     def generate_text(self, script, content):
         try:
-            logging.info("Text Generation Started")
+            logging.info("AI Generation Started")
             reply = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[
@@ -21,10 +21,10 @@ class OpenAIApi:
                 ],
                 temperature=0.7
             )
-            logging.debug(f"Script reply {reply}")
+            logging.debug(f"Story: {reply}")
 
             if 'choices' not in reply:
-                logging.error("Script Generation Failed: 'choices' not in reply")
+                logging.error("Story Generation Failed: 'choices' not in reply")
                 return None
 
             response = reply['choices'][0]['message']['content']
@@ -35,7 +35,7 @@ class OpenAIApi:
             logging.debug(f"Open api responce: {response}")
             response = response.replace("\n\n","\n")
             response = response.split("\n")
-            logging.info("Text Generation Finished")
+            logging.info("AI Generation Finished")
 
             return response
         except ValueError as e:
