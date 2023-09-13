@@ -12,3 +12,5 @@ test.py
 latest_silero_models.yml
 newenv
 myenv
+test*.py
+tree.sh

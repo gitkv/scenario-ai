@@ -12,5 +12,6 @@ omegaconf==2.3.0
 pydantic==2.3.0
 pymongo==4.5.0
 numpy==1.25.2
-python-telegram-bot=20.5
+python-telegram-bot==20.5
 feedparser==6.0.10
+pymorphy2==2-0.9.1

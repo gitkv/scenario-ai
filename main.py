@@ -14,6 +14,7 @@ from services.openai import OpenAIApi
 from services.rss_news_service import RSSNewsService
 from services.story_generator import StoryGenerator
 from services.telegram_service import TelegramService
+from services.text_filter.text_filter import TextFilter
 from services.topic_generator import TopicGenerator
 from services.voice.base_tts import BaseTTS
 from services.voice.silero_tts import SileroTTS
@@ -57,6 +58,9 @@ def main():
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
+    with open("banned_words.txt", "r", encoding="utf-8") as file:
+        banned_words = file.readlines()
+
     config_name = os.getenv("CONFIG_NAME", "default")
     audio_dir = os.path.join("audio", config_name)
     config = load_config(config_name)
@@ -66,9 +70,10 @@ def main():
     mongo_db = mongo_client[f'{config_name}_scenarios_db']
     topic_repo = TopicRepository(mongo_db['topics'])
     story_repo = StoryRepository(audio_dir, mongo_db['stories'])
+    text_filter = TextFilter(banned_words)
     topic_generator = TopicGenerator(config.dialogue_data, int(os.getenv("MAX_SYSTEM_TOPICS", 10)), topic_repo)
     story_generator = StoryGenerator(openai_client, config, voice_generator, audio_dir, int(os.getenv("MAX_SYSTEM_STORIES", 2)), topic_repo, story_repo)
-    telegram_service = TelegramService(config.telegram_token, topic_repo, os.getenv("TELEGRAM_MODERATOR_ID"))
+    telegram_service = TelegramService(config.telegram_token, text_filter, topic_repo, os.getenv("TELEGRAM_MODERATOR_ID"), os.getenv("DONAT_URL"))
     rss_news_service = RSSNewsService(config.rss_urls, topic_repo)
 
     threading.Thread(target=topic_generator.generate, daemon=True).start()

@@ -1,68 +1,99 @@
 import logging
+
 from bson import ObjectId
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (ApplicationBuilder, CommandHandler, ContextTypes,
-                          MessageHandler, filters, CallbackQueryHandler)
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.constants import ParseMode
+from telegram.ext import (ApplicationBuilder, CallbackQueryHandler,
+                          CommandHandler, ContextTypes, MessageHandler,
+                          filters)
 
 from models.topic import Topic
 from models.topic_priority import TopicPriority
 from repos.topic_repository import TopicRepository
+from services.text_filter.text_filter import TextFilter
 
 
 class TelegramService:
-    def __init__(self, token: str, topic_repository: TopicRepository, moderatorId: str):
-        self.application = ApplicationBuilder().token(token).build()
+    def __init__(self, token: str, text_filter: TextFilter, topic_repository: TopicRepository, moderatorId: str, donat_url: str):
+        self._initialize_handlers(token)
         self.topic_repository = topic_repository
-        self.first_count = 15
+        self.text_filter = text_filter
         self.moderatorId = moderatorId
-        self.max_topic_lenght = 250
+        self.donat_url = donat_url
+        self.first_count = 15
+        self.max_topic_lenght = 200
+        self.message_count_per_min = 3
         self.user_messages = {}
-        self.help_message = (
-            f"/get_topics - Показать очередь тем на обработку (первые {self.first_count} тем).\n"
+
+    def _initialize_handlers(self, token: str):
+        self.application = ApplicationBuilder().token(token).build()
+        
+        handlers = [
+            CommandHandler('start', self.start),
+            CommandHandler('get_topics', self.get_topics),
+            CommandHandler('add_topic', self.add_topic),
+            CommandHandler('get_next_topic', self.get_next_topic),
+            CommandHandler('rules', self.rules),
+            CommandHandler('help', self.help),
+            MessageHandler(filters.TEXT & (~filters.COMMAND), self.unknown_command),
+            CallbackQueryHandler(self.handle_approval)
+        ]
+        for handler in handlers:
+            self.application.add_handler(handler)
+
+    def _get_help_message(self):
+        return (
+            "🔹 <b>Список доступных команд:</b>\n\n"
+            f"/get_topics - Посмотреть очередь тем на обработку (первые {self.first_count} тем).\n"
             "/get_next_topic - Посмотреть какая тема будет обработана следующей.\n"
             "/add_topic текст - Добавить новую тему.\n"
-            "/help - Показать эту справку."
+            "/rules - Посмотреть правила бота.\n"
+            "/help - Посмотреть справку по командам."
         )
-        
-        start_handler = CommandHandler('start', self.start)
-        topics_handler = CommandHandler('get_topics', self.get_topics)
-        add_topic_handler = CommandHandler('add_topic', self.add_topic)
-        get_next_topic_handler = CommandHandler('get_next_topic', self.get_next_topic)
-        help_handler = CommandHandler('help', self.help)
-    
-        message_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), self.unknown_command)
-        approval_handler = CallbackQueryHandler(self.handle_approval)
-        
-        self.application.add_handler(start_handler)
-        self.application.add_handler(topics_handler)
-        self.application.add_handler(add_topic_handler)
-        self.application.add_handler(get_next_topic_handler)
-        self.application.add_handler(help_handler)
-        self.application.add_handler(approval_handler)
-        self.application.add_handler(message_handler)
-    
+
+    def _get_rules_message(self):
+        return (
+            "❗️❗️ <b>Правила использования:</b>\n\n"
+            "- Не отправляйте оскорбительные или провокационные сообщения.\n"
+            "- Избегайте тем, связанных с политикой, насилием, дискриминацией или экстремизмом.\n"
+            "- Будьте уважительны к другим пользователям.\n"
+            f"- Ограничение по количеству символов в сообщении темы: {self.max_topic_lenght}.\n"
+            "- 👍🏻 Разрешено употребление нецензурных выражений и матерных слов.\nn"
+            "Нарушение правил может привести к блокировке вашего доступа к боту.\n\n"
+            "💡 <b>О приоритетности тем:</b>\n\n"
+            f"- Если вы хотите, чтобы ваша тема была обработана в первую очередь, вы можете поддержать нас <a href=\"{self.donat_url}\">донатом по этой ссылке</a>.\n"
+            "- Темы, заданные через этого бота без доната, обрабатываются по мере возможности. При большом количестве желающих время ожидания может возрастать.\n\n"
+        )
+
+    def _truncate_topic_text(self, text: str) -> str:
+        return text[:self.max_topic_lenght] + "..." if len(text) > self.max_topic_lenght else text
+
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        start_message = (
-            "Добро пожаловать в нашего бота! Здесь мы можете управлять нашем эфиром новостей! Вот список доступных команд:\n\n"+self.help_message
+        welcome_text = (
+            "<b>Добро пожаловать в нашего бота!</b>\n\n"
+            "🚀 Здесь вы можете предложить свои темы для эфира и посмотреть текущую очередь тем.\n\n"
         )
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=start_message)
+        start_message = f"{welcome_text}{self._get_rules_message()}{self._get_help_message()}"
+
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=start_message, parse_mode=ParseMode.HTML)
+
+
+    async def rules(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=self._get_rules_message(), parse_mode=ParseMode.HTML)
 
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=self.help_message)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=self._get_help_message(), parse_mode=ParseMode.HTML)
 
     async def unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        message = "Эта команда не поддерживается. Используйте /help чтобы узнать список доступных команд."
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+        message = "Эта команда не поддерживается.\n\n" + self._get_help_message()
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=message, parse_mode=ParseMode.HTML)
         
     async def get_topics(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         topics = self.topic_repository.get_n_oldest_topics(self.first_count)
-
-        def truncate_topic_text(text: str) -> str:
-            if len(text) > self.max_topic_lenght:
-                return text[:self.max_topic_lenght] + "..."
-            return text
-        
-        message = f"Первые {self.first_count} тем в очереди на обработку: \n\n"+'\n'.join([f"🔶 {index + 1}. {truncate_topic_text(topic.text)} \n" for index, topic in enumerate(topics)])
+        message = (
+            f"Первые {self.first_count} тем в очереди на обработку: \n\n" +
+            '\n'.join([f"🔶 {index + 1}. {self._truncate_topic_text(topic.text)} \n" for index, topic in enumerate(topics)])
+        )
         await context.bot.send_message(chat_id=update.effective_chat.id, text=message or "⛔ Очередь тем пуста.")
         
     async def add_topic(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -74,8 +105,8 @@ class TelegramService:
             # Удаляем таймстампы, которые старше одной минуты
             self.user_messages[user_id] = [t for t in self.user_messages[user_id] if current_timestamp - t < 60]
             
-            # Проверка, отправил ли пользователь более 3 сообщений в последнюю минуту
-            if len(self.user_messages[user_id]) >= 3:
+            # Проверка, отправил ли пользователь более n сообщений в последнюю минуту
+            if len(self.user_messages[user_id]) >= self.message_count_per_min:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="⛔ Вы отправляете сообщения слишком часто. Пожалуйста, подождите немного.")
                 return
         else:
@@ -95,15 +126,23 @@ class TelegramService:
 
         requestor_name = update.message.from_user.first_name or update.message.from_user.username
 
+        is_forbidden_text = self.text_filter.is_forbidden(topic_text)
+
         topic = self.topic_repository.create_topic(Topic(
             _id=str(ObjectId()),
             topic_priority=TopicPriority.USER.value,
             requestor_name=requestor_name,
-            is_allowed=False,
+            is_allowed=not is_forbidden_text,
             text=topic_text
         ))
-        await self.send_moderation_request(topic, context)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"✅ Ваша тема успешно добавлена в очередь на обработку:\n\n\"{topic_text}\".")
+        
+        if is_forbidden_text:
+            await self.send_moderation_request(topic, context)
+            added_text=f"✅ Ваша тема добавлена, но требует модерации из-за возможного нарушения правил:\n\n\"{topic_text}\"."
+        else:
+            added_text=f"✅ Ваша тема успешно добавлена в очередь на обработку:\n\n\"{topic_text}\"."
+
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=added_text)
     
     async def get_next_topic(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         topic = self.topic_repository.get_topic_by_priority()
@@ -114,10 +153,10 @@ class TelegramService:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
     
     async def send_moderation_request(self, topic: Topic, context: ContextTypes.DEFAULT_TYPE):
-        keyboard = [
-            [InlineKeyboardButton("✅ Одобрить", callback_data=f'approve_{topic.id}'),
-            InlineKeyboardButton("❌ Отклонить", callback_data=f'decline_{topic.id}')]
-        ]
+        keyboard = [[
+            InlineKeyboardButton("✅ Одобрить", callback_data=f'approve_{topic.id}'),
+            InlineKeyboardButton("❌ Отклонить", callback_data=f'decline_{topic.id}')
+        ]]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         text = f"🆕 Новая тема от {topic.requestor_name}:\n\n{topic.text}"
@@ -143,11 +182,7 @@ class TelegramService:
         
         # Изменяем текст сообщения, добавляя вердикт
         new_text = query.message.text + verdict_text
-        await context.bot.edit_message_text(chat_id=query.message.chat_id, 
-                                            message_id=query.message.message_id,
-                                            text=new_text,
-                                            reply_markup=None)
-
+        await context.bot.edit_message_text(chat_id=query.message.chat_id, message_id=query.message.message_id, text=new_text, reply_markup=None)
         
     def run(self):
         self.application.run_polling()
