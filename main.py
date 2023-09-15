@@ -10,6 +10,8 @@ from pymongo import MongoClient
 
 from models.config import Config
 from repos import StoryRepository, TopicRepository
+from services.donation_alerts_service import DonationAlertsService
+from services.donation_alerts_parser_service import DonationAlertsParserService
 from services.openai import OpenAIApi
 from services.rss_news_service import RSSNewsService
 from services.story_generator import StoryGenerator
@@ -75,11 +77,15 @@ def main():
     story_generator = StoryGenerator(openai_client, config, voice_generator, audio_dir, int(os.getenv("MAX_SYSTEM_STORIES", 2)), topic_repo, story_repo)
     telegram_service = TelegramService(config.telegram_token, text_filter, topic_repo, os.getenv("TELEGRAM_MODERATOR_ID"), os.getenv("DONAT_URL"))
     rss_news_service = RSSNewsService(config.rss_urls, topic_repo)
+    donation_alerts_service = DonationAlertsService(config.da_alert_widget_token, topic_repo)
+    donation_alerts_parser_service = DonationAlertsParserService(config.da_alert_widget_token, topic_repo)
 
     threading.Thread(target=topic_generator.generate, daemon=True).start()
     threading.Thread(target=story_generator.generate, daemon=True).start()
     threading.Thread(target=rss_news_service.run, daemon=True).start()
     threading.Thread(target=run_flask_app, args=(story_repo,)).start()
+    threading.Thread(target=donation_alerts_service.start, daemon=True).start()
+    # threading.Thread(target=donation_alerts_parser_service.start, daemon=True).start()
 
     telegram_service.run()
 

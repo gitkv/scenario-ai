@@ -21,6 +21,8 @@ system_prompt: |
 
 telegram_token:
 
+da_alert_widget_token:
+
 rss_urls:
   - https://news.ru/rss/category/post/culture/
   - https://news.ru/rss/category/post/economics/
