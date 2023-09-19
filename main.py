@@ -68,7 +68,7 @@ def main():
     config = load_config(config_name)
     openai_client = OpenAIApi(os.getenv("OPENAI_API_KEY"), os.getenv("OPENAI_API_BASE", "https://api.openai.com"))
     voice_generator = initialize_voice_generator(config, os.getenv("YANDEX_TTS_API_KEY"))
-    mongo_client = MongoClient('mongodb://username:password@localhost:27017/admin')
+    mongo_client = MongoClient('mongodb://localhost:27017/')
     mongo_db = mongo_client[f'{config_name}_scenarios_db']
     topic_repo = TopicRepository(mongo_db['topics'])
     story_repo = StoryRepository(audio_dir, mongo_db['stories'])
