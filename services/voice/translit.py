@@ -31,7 +31,11 @@ class Translit:
             'fps': 'ЭфПиЭс', 'rts': 'АрТиЭс', 'esports': 'Эспортс', 'skin': 'Скин', 'loot': 'Лут', 'box': 'Бокс', 
             'respawn': 'Респаун', 'pvp': 'ПиВиПи', 'pve': 'ПиВиИ', 'raid': 'Рейд', 'quest': 'Квест', 'grind': 'Гринд',
             'level': 'Левел', 'multiplayer': 'Мультиплеер', 'singleplayer': 'Синглплеер', 'coop': 'Кооп', 'dlc': 'ДиЭлСи',
-            'achievement': 'Ачивмент', '1C': 'одинЭс'
+            'achievement': 'Ачивмент', '1C': 'одинЭс', 'это': 'э+то', 'эти': 'э+ти', 'этих': 'эти+х', 'ЛГБТ': 'ЭлГэБэТэ',
+            'ЦРУ': 'ЦеЭр+У', 'ФСБ': 'ФэЭс+Бэ', 'КНР': 'Ка+ЕнЭр', 'КНДР': 'Ка+ЕнДеЭр', 'SpaceX': 'Спэйс+Экс',
+            'StarShip': 'Стар+Шип', 'НАТО': 'На+то', 'ООН': 'О+Он', 'ВТО': 'ВэТэ+О', 'МВФ': 'ЭмВэ+эф', 'МИД': 'Ми+д',
+            'НБА': 'энБе+А', 'ОПЕК': 'О+пек', 'РФ': 'эр+эф', 'США': 'сэ+Шэа', 'МММ': 'ЭмЭм+эМ', 'БМВ': 'Бе+эмВэ',
+            'NASA': '+Наса', 'МВД': 'ЭмВэ+дэ', 
         }
     
     def add_word_mapping(self, word, translit):
@@ -42,13 +46,10 @@ class Translit:
             del self.word_translit_dict[word.lower()]
     
     def replace_words_from_dict(self, text) -> str:
-        words = re.findall(r'\b\w+\b', text)
         result = text
         
-        for word in words:
-            word_lower = word.lower()
-            if word_lower in self.word_translit_dict:
-                result = re.sub(r'\b' + re.escape(word) + r'\b', self.word_translit_dict[word_lower], result, flags=re.IGNORECASE)
+        for word, translit in self.word_translit_dict.items():
+            result = re.sub(r'\b' + re.escape(word) + r'\b', translit, result, flags=re.IGNORECASE)
         
         return result
     
@@ -60,6 +61,6 @@ class Translit:
             word_lower = word.lower()
             if word_lower not in self.word_translit_dict:
                 translit_word = ''.join([self.translit_dict.get(c.lower(), c) for c in word])
-                result = re.sub(r'\b' + re.escape(word) + r'\b', translit_word, result)
+                result = result.replace(word, translit_word)
         
         return result

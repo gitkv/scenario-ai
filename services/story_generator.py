@@ -114,8 +114,8 @@ class StoryGenerator:
                     self.safe_remove_directory(full_subdirectory_path)
 
 
-    def _create_output_directory(self, increment):
-        output_dir = f"{self.audio_dir}/{increment}"
+    def _create_output_directory(self, id):
+        output_dir = os.path.join(self.audio_dir, id)
         os.makedirs(output_dir, exist_ok=True)
 
         return output_dir

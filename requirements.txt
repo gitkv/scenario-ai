@@ -5,8 +5,8 @@ mediainfo==0.0.9
 openai==0.27.10
 pydub==0.25.1
 requests==2.31.0
-PyYAML==6.0
-torch==1.10.0
+PyYAML==6.0.1
+torch==1.11.0
 num2words==0.5.12
 omegaconf==2.3.0
 pydantic==2.3.0
@@ -14,7 +14,7 @@ pymongo==4.5.0
 numpy==1.25.2
 python-telegram-bot==20.5
 feedparser==6.0.10
-pymorphy2==2-0.9.1
+pymorphy2==0.9.1
 python-socketio==5.9.0
 websocket-client==1.6.3
 bs4==0.0.1
