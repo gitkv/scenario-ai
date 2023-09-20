@@ -93,9 +93,9 @@ def main():
     story_repo = StoryRepository(audio_dir, mongo_db['stories'])
     text_filter = TextFilter(banned_words)
     topic_generator = TopicGenerator(config.dialogue_data, int(os.getenv("MAX_SYSTEM_TOPICS", 5)), topic_repo)
-    story_generator = StoryGenerator(openai_client, config, voice_generator, audio_dir, int(os.getenv("MAX_SYSTEM_STORIES", 2)), topic_repo, story_repo)
+    rss_news_service = RSSNewsService(config.rss_urls, topic_repo, os.getenv("MAX_RSS_TOPICS", 20))
     telegram_service = TelegramService(os.getenv("TELEGRAM_TOKEN"), text_filter, topic_repo, os.getenv("TELEGRAM_MODERATOR_ID"), os.getenv("DONAT_URL"))
-    rss_news_service = RSSNewsService(config.rss_urls, topic_repo)
+    story_generator = StoryGenerator(openai_client, config, voice_generator, audio_dir, int(os.getenv("MAX_SYSTEM_STORIES", 10)), int(os.getenv("MAX_RSS_STORIES", 100)), topic_repo, story_repo)
 
     threading.Thread(target=topic_generator.generate, daemon=True).start()
     threading.Thread(target=story_generator.generate, daemon=True).start()

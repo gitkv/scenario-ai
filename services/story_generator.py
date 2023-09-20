@@ -20,12 +20,13 @@ from services.voice.base_tts import BaseTTS
 
 
 class StoryGenerator:
-    def __init__(self, openai_client: OpenAIApi, config: Config, voice_generator: BaseTTS, audio_dir: str, max_system_stoies: int, topic_repository: TopicRepository, story_repository: StoryRepository):
+    def __init__(self, openai_client: OpenAIApi, config: Config, voice_generator: BaseTTS, audio_dir: str, max_system_stoies: int, max_rss_stoies: int, topic_repository: TopicRepository, story_repository: StoryRepository):
         self.config = config
         self.audio_dir = audio_dir
         self.openai_api = openai_client
         self.voice_generator = voice_generator
         self.max_system_stoies = max_system_stoies
+        self.max_rss_stoies = max_rss_stoies
         self.topic_repository = topic_repository
         self.story_repository = story_repository
         self.delimeter = "::"
@@ -50,6 +51,11 @@ class StoryGenerator:
 
                 if topic.topic_priority == TopicPriority.SYSTEM.value and self.story_repository.get_count_by_topic_priority(TopicPriority.SYSTEM) >= self.max_system_stoies:
                     logging.info(f"Reached the maximum system number of story ({self.max_system_stoies}). Pausing generation...")
+                    time.sleep(10)
+                    continue
+
+                if topic.topic_priority == TopicPriority.RSS.value and self.story_repository.get_count_by_topic_priority(TopicPriority.RSS) >= self.max_rss_stoies:
+                    logging.info(f"Reached the maximum rss number of story ({self.max_rss_stoies}). Pausing generation...")
                     time.sleep(10)
                     continue
 

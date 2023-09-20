@@ -42,6 +42,9 @@ class StoryRepository:
 
     def get_count_by_topic_priority(self, topic_priority: TopicPriority) -> int:
         return self.collection.count_documents({"topic_priority": topic_priority.value})
+
+    def get_count_all_stories(self) -> int:
+        return self.collection.count_documents()
     
     def get_story_by_priority(self) -> Optional[StoryModel]:
         document = self.collection.find_one(

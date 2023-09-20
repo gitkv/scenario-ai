@@ -9,9 +9,10 @@ from bson import ObjectId
 from datetime import datetime
 
 class RSSNewsService:
-    def __init__(self, rss_urls: list, topic_repository: TopicRepository, interval: int = 600):
+    def __init__(self, rss_urls: list, topic_repository: TopicRepository, max_rss_topics: int, interval: int = 600):
         self.rss_urls = rss_urls
         self.topic_repository = topic_repository
+        self.max_rss_topics = max_rss_topics
         self.interval = interval
 
     def remove_html_tags(self, text: str) -> str:
@@ -20,8 +21,9 @@ class RSSNewsService:
 
     def fetch_news(self):
         news_entries = []
+        last_news_date = self.topic_repository.get_latest_rss_topic_date()
+
         for rss_url in self.rss_urls:
-            last_news_date = self.topic_repository.get_latest_rss_topic_date()
             feed = feedparser.parse(rss_url)
             
             for entry in feed.entries:
@@ -45,11 +47,17 @@ class RSSNewsService:
                 created_at=date
             )
             self.topic_repository.create_topic(topic)
+            last_news_date = date
             logging.info(f"Added news topic from RSS: {entry.title}")
 
     def run(self):
         while True:
             try:
+                while self.topic_repository.get_rss_topic_count() > self.max_rss_topics:
+                    logging.info(f"Reached the maximum rss number of topic ({self.max_rss_topics}). Pausing generation...")
+                    time.sleep(self.interval)
+                    continue
+
                 self.fetch_news()
                 time.sleep(self.interval)
             except Exception as e:

@@ -64,3 +64,6 @@ class TopicRepository:
         if document:
             return document['created_at']
         return None
+    
+    def get_rss_topic_count(self) -> int:
+        return self.collection.count_documents({"topic_priority": TopicPriority.RSS.value})
