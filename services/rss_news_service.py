@@ -7,12 +7,14 @@ from repos.topic_repository import TopicRepository
 from models.topic_priority import TopicPriority
 from bson import ObjectId
 from datetime import datetime
+from services.text_filter.text_filter import TextFilter
 
 class RSSNewsService:
-    def __init__(self, rss_urls: list, topic_repository: TopicRepository, max_rss_topics: int, interval: int = 600):
+    def __init__(self, text_filter: TextFilter, rss_urls: list, topic_repository: TopicRepository, max_rss_topics: int, interval: int = 600):
         self.rss_urls = rss_urls
         self.topic_repository = topic_repository
         self.max_rss_topics = max_rss_topics
+        self.text_filter = text_filter
         self.interval = interval
 
     def remove_html_tags(self, text: str) -> str:
@@ -36,14 +38,21 @@ class RSSNewsService:
 
         for entry in news_entries:
             clean_description = self.remove_html_tags(entry.description)
-            topic_text = f"Грубо с матом обсуждают новость о том что, {entry.title}. {clean_description}"
+
+            topic_text = f"{entry.title}. {clean_description}"
+
+            is_forbidden_text = self.text_filter.is_forbidden(topic_text)
+            if(is_forbidden_text):
+                logging.warning(f"!!!Text is forbidden: {topic_text}")
+                continue
+
             date = datetime(*entry.published_parsed[:6])
             topic = Topic(
                 _id=str(ObjectId()),
                 topic_priority=TopicPriority.RSS.value,
                 requestor_name="RSS",
                 is_allowed=True,
-                text=topic_text,
+                text=f"Грубо с матом обсуждают новость о том что, {topic_text}",
                 created_at=date
             )
             self.topic_repository.create_topic(topic)
