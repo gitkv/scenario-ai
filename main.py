@@ -10,8 +10,8 @@ from pymongo import MongoClient
 
 from models.config import Config
 from repos import StoryRepository, TopicRepository
-from services.donation_alerts_service import DonationAlertsService
 from services.donation_alerts_parser_service import DonationAlertsParserService
+from services.donation_alerts_service import DonationAlertsService
 from services.openai import OpenAIApi
 from services.rss_news_service import RSSNewsService
 from services.story_generator import StoryGenerator
@@ -23,6 +23,24 @@ from services.voice.silero_tts import SileroTTS
 from services.voice.yandex_tts import YandexTTS
 from story_controller import StoryController
 
+def setup_logging():
+    # Основная настройка логгера
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    # Обработчик для вывода логов уровня INFO в консоль
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(console_format)
+    logger.addHandler(console_handler)
+
+    # Обработчик для записи логов уровня ERROR в файл
+    file_handler = logging.FileHandler("error_logs.log")
+    file_handler.setLevel(logging.ERROR)
+    file_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(file_format)
+    logger.addHandler(file_handler)
 
 def load_config(config_name: str) -> Config:
     base_path = os.path.join("config", "base", f"{config_name}.yaml")
@@ -56,9 +74,9 @@ def run_flask_app(story_repo):
     app.run(threaded=True, debug=False, port=5000)
 
 def main():
-    load_dotenv()
+    setup_logging()
 
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    load_dotenv()
 
     with open("banned_words.txt", "r", encoding="utf-8") as file:
         banned_words = file.readlines()
@@ -68,12 +86,12 @@ def main():
     config = load_config(config_name)
     openai_client = OpenAIApi(os.getenv("OPENAI_API_KEY"), os.getenv("OPENAI_API_BASE", "https://api.openai.com"))
     voice_generator = initialize_voice_generator(config, os.getenv("YANDEX_TTS_API_KEY"))
-    mongo_client = MongoClient('mongodb://localhost:27017/')
+    mongo_client = MongoClient(os.getenv("MONGODB_CONNECTION_STRING", "mongodb://localhost:27017/"))
     mongo_db = mongo_client[f'{config_name}_scenarios_db']
     topic_repo = TopicRepository(mongo_db['topics'])
     story_repo = StoryRepository(audio_dir, mongo_db['stories'])
     text_filter = TextFilter(banned_words)
-    topic_generator = TopicGenerator(config.dialogue_data, int(os.getenv("MAX_SYSTEM_TOPICS", 10)), topic_repo)
+    topic_generator = TopicGenerator(config.dialogue_data, int(os.getenv("MAX_SYSTEM_TOPICS", 5)), topic_repo)
     story_generator = StoryGenerator(openai_client, config, voice_generator, audio_dir, int(os.getenv("MAX_SYSTEM_STORIES", 2)), topic_repo, story_repo)
     telegram_service = TelegramService(config.telegram_token, text_filter, topic_repo, os.getenv("TELEGRAM_MODERATOR_ID"), os.getenv("DONAT_URL"))
     rss_news_service = RSSNewsService(config.rss_urls, topic_repo)
@@ -85,7 +103,7 @@ def main():
     threading.Thread(target=rss_news_service.run, daemon=True).start()
     threading.Thread(target=run_flask_app, args=(story_repo,)).start()
     threading.Thread(target=donation_alerts_service.start, daemon=True).start()
-    # threading.Thread(target=donation_alerts_parser_service.start, daemon=True).start()
+    threading.Thread(target=donation_alerts_parser_service.start, daemon=True).start()
 
     telegram_service.run()
 

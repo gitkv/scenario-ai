@@ -1,8 +1,11 @@
 import logging
+import time
 
 from bson import ObjectId
+from httpx import ConnectTimeout
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
+from telegram.error import TimedOut
 from telegram.ext import (ApplicationBuilder, CallbackQueryHandler,
                           CommandHandler, ContextTypes, MessageHandler,
                           filters)
@@ -20,9 +23,12 @@ class TelegramService:
         self.text_filter = text_filter
         self.moderatorId = moderatorId
         self.donat_url = donat_url
-        self.first_count = 15
-        self.max_topic_lenght = 200
+        self.first_count = 5
+        self.max_topic_lenght = 300
+        self.truncate_show_topic_lenght = 100
         self.message_count_per_min = 3
+        self.max_retries = 3
+        self.retry_wait_time = 5
         self.user_messages = {}
 
     def _initialize_handlers(self, token: str):
@@ -67,7 +73,18 @@ class TelegramService:
         )
 
     def _truncate_topic_text(self, text: str) -> str:
-        return text[:self.max_topic_lenght] + "..." if len(text) > self.max_topic_lenght else text
+        return text[:self.truncate_show_topic_lenght] + "..." if len(text) > self.truncate_show_topic_lenght else text
+
+    async def safe_send_message(self, context, chat_id, text, **kwargs):
+        for attempt in range(self.max_retries):
+            try:
+                return await context.bot.send_message(chat_id=chat_id, text=text, **kwargs)
+            except (TimedOut, ConnectTimeout):
+                if attempt < self.max_retries - 1:  # Если это не последняя попытка
+                    logging.warning(f"Failed to send message, retrying in {self.retry_wait_time} seconds... (Attempt {attempt + 1}/{self.max_retries})")
+                    time.sleep(self.retry_wait_time)
+                else:
+                    logging.error(f"Failed to send message after {self.max_retries} attempts.")
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         welcome_text = (
@@ -76,26 +93,31 @@ class TelegramService:
         )
         start_message = f"{welcome_text}{self._get_rules_message()}{self._get_help_message()}"
 
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=start_message, parse_mode=ParseMode.HTML)
+        await self.safe_send_message(context=context, hat_id=update.effective_chat.id, text=start_message, parse_mode=ParseMode.HTML)
 
 
     async def rules(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=self._get_rules_message(), parse_mode=ParseMode.HTML)
+        await self.safe_send_message(context=context, chat_id=update.effective_chat.id, text=self._get_rules_message(), parse_mode=ParseMode.HTML)
 
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=self._get_help_message(), parse_mode=ParseMode.HTML)
+        await self.safe_send_message(context=context, chat_id=update.effective_chat.id, text=self._get_help_message(), parse_mode=ParseMode.HTML)
 
     async def unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = "Эта команда не поддерживается.\n\n" + self._get_help_message()
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=message, parse_mode=ParseMode.HTML)
+        await self.safe_send_message(context=context, chat_id=update.effective_chat.id, text=message, parse_mode=ParseMode.HTML)
         
     async def get_topics(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         topics = self.topic_repository.get_n_oldest_topics(self.first_count)
-        message = (
-            f"Первые {self.first_count} тем в очереди на обработку: \n\n" +
-            '\n'.join([f"🔶 {index + 1}. {self._truncate_topic_text(topic.text)} \n" for index, topic in enumerate(topics)])
-        )
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=message or "⛔ Очередь тем пуста.")
+        
+        if not topics:
+            message = "⛔ Очередь тем пуста."
+        else:
+            message = (
+                f"Первые {self.first_count} тем в очереди на обработку: \n\n" +
+                '\n'.join([f"🔶 {index + 1}. {self._truncate_topic_text(topic.text)} \n" for index, topic in enumerate(topics)])
+            )
+            
+        await self.safe_send_message(context=context, chat_id=update.effective_chat.id, text=message)
         
     async def add_topic(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.message.from_user.id
@@ -108,7 +130,7 @@ class TelegramService:
             
             # Проверка, отправил ли пользователь более n сообщений в последнюю минуту
             if len(self.user_messages[user_id]) >= self.message_count_per_min:
-                await context.bot.send_message(chat_id=update.effective_chat.id, text="⛔ Вы отправляете сообщения слишком часто. Пожалуйста, подождите немного.")
+                await self.safe_send_message(context=context, chat_id=update.effective_chat.id, text="⛔ Вы отправляете сообщения слишком часто. Пожалуйста, подождите немного.")
                 return
         else:
             self.user_messages[user_id] = []
@@ -118,11 +140,11 @@ class TelegramService:
 
         topic_text = ' '.join(context.args)
         if not topic_text:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="⛔ Вы не указали текст темы.")
+            await self.safe_send_message(context=context, chat_id=update.effective_chat.id, text="⛔ Вы не указали текст темы.")
             return
         
-        if len(topic_text) > self.max_topic_lenght:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"⛔ Текст темы слишком длинный. Максимальное количество символов: {self.max_topic_lenght}.")
+        if str(user_id) != str(self.moderatorId) and len(topic_text) > self.max_topic_lenght:
+            await self.safe_send_message(context=context, chat_id=update.effective_chat.id, text=f"⛔ Текст темы слишком длинный. Максимальное количество символов: {self.max_topic_lenght}.")
             return
 
         requestor_name = update.message.from_user.first_name or update.message.from_user.username
@@ -138,12 +160,14 @@ class TelegramService:
         ))
         
         if is_forbidden_text:
-            await self.send_moderation_request(topic, context)
             added_text=f"✅ Ваша тема добавлена, но требует модерации из-за возможного нарушения правил:\n\n\"{topic_text}\"."
         else:
             added_text=f"✅ Ваша тема успешно добавлена в очередь на обработку:\n\n\"{topic_text}\"."
 
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=added_text)
+        await self.safe_send_message(context=context, chat_id=update.effective_chat.id, text=added_text)
+
+        if is_forbidden_text:
+            await self.send_moderation_request(topic, context)
     
     async def get_next_topic(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         topic = self.topic_repository.get_topic_by_priority()
@@ -151,7 +175,7 @@ class TelegramService:
             message = f"⏩ Следущая тема для обработки:\n\n\"{topic.text}\""
         else:
             message = "⛔ Список тем пуст."
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+        await self.safe_send_message(context=context, chat_id=update.effective_chat.id, text=message)
     
     async def send_moderation_request(self, topic: Topic, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [[
@@ -161,7 +185,7 @@ class TelegramService:
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         text = f"🆕 Новая тема от {topic.requestor_name}:\n\n{topic.text}"
-        await context.bot.send_message(chat_id=self.moderatorId, text=text, reply_markup=reply_markup)
+        await self.safe_send_message(context=context, chat_id=self.moderatorId, text=text, reply_markup=reply_markup)
 
     async def handle_approval(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
