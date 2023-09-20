@@ -82,6 +82,7 @@ def main():
         banned_words = file.readlines()
 
     config_name = os.getenv("CONFIG_NAME", "default")
+    da_alert_service_variant = os.getenv("DA_ALERT_SERVICE_VARIANT", "websocket")
     audio_dir = os.path.join("audio", config_name)
     config = load_config(config_name)
     openai_client = OpenAIApi(os.getenv("OPENAI_API_KEY"), os.getenv("OPENAI_API_BASE", "https://api.openai.com"))
@@ -93,17 +94,20 @@ def main():
     text_filter = TextFilter(banned_words)
     topic_generator = TopicGenerator(config.dialogue_data, int(os.getenv("MAX_SYSTEM_TOPICS", 5)), topic_repo)
     story_generator = StoryGenerator(openai_client, config, voice_generator, audio_dir, int(os.getenv("MAX_SYSTEM_STORIES", 2)), topic_repo, story_repo)
-    telegram_service = TelegramService(config.telegram_token, text_filter, topic_repo, os.getenv("TELEGRAM_MODERATOR_ID"), os.getenv("DONAT_URL"))
+    telegram_service = TelegramService(os.getenv("TELEGRAM_TOKEN"), text_filter, topic_repo, os.getenv("TELEGRAM_MODERATOR_ID"), os.getenv("DONAT_URL"))
     rss_news_service = RSSNewsService(config.rss_urls, topic_repo)
-    donation_alerts_service = DonationAlertsService(config.da_alert_widget_token, topic_repo)
-    donation_alerts_parser_service = DonationAlertsParserService(config.da_alert_widget_token, topic_repo)
 
     threading.Thread(target=topic_generator.generate, daemon=True).start()
     threading.Thread(target=story_generator.generate, daemon=True).start()
     threading.Thread(target=rss_news_service.run, daemon=True).start()
     threading.Thread(target=run_flask_app, args=(story_repo,)).start()
+
+    if(da_alert_service_variant == 'websocket'):
+        donation_alerts_service = DonationAlertsService(os.getenv("DA_ALERT_WIDGET_TOKEN"), topic_repo)
+    else:
+        donation_alerts_service = DonationAlertsParserService(os.getenv("DA_ALERT_WIDGET_TOKEN"), topic_repo)
+
     threading.Thread(target=donation_alerts_service.start, daemon=True).start()
-    threading.Thread(target=donation_alerts_parser_service.start, daemon=True).start()
 
     telegram_service.run()
 
